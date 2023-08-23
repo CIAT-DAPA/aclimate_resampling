@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import unittest
 from datetime import datetime
 from datetime import timedelta
-from src.complete_data import CompleteData
+from src.aclimate_resampling.complete_data import CompleteData
 import pandas as pd
 import numpy as np
 
