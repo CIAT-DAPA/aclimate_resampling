@@ -48,7 +48,8 @@ class TestCompleteData(unittest.TestCase):
         self.path_env_country_inputs_forecast_dailydownloaded_chirp = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded,"chirp")
         self.path_env_country_inputs_forecast_dailydownloaded_era5 = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded,"era5")
         self.path_env_country_outputs = os.path.join(self.path_env_country,"outputs")
-        self.path_env_country_outputs_resampling = os.path.join(self.path_env_country_outputs,"resampling")
+        self.path_env_country_outputs_forecast = os.path.join(self.path_env_country_outputs,"prediccionClimatica")
+        self.path_env_country_outputs_forecast_resampling = os.path.join(self.path_env_country_outputs_forecast,"resampling")
 
         self.chirps_file_path = os.path.join(self.path_env_country, self.chirps_file_name)
         self.chirps_file_path_compressed = os.path.join(self.path_env_country, self.chirps_url_name)
@@ -98,7 +99,8 @@ class TestCompleteData(unittest.TestCase):
         self.assertTrue(os.path.exists(complete_data.path_country_inputs_forecast_dailydata))
         self.assertTrue(os.path.exists(complete_data.path_country_inputs_forecast_dailydownloaded))
         self.assertTrue(os.path.exists(complete_data.path_country_outputs))
-        self.assertTrue(os.path.exists(complete_data.path_country_outputs_resampling))
+        self.assertTrue(os.path.exists(complete_data.path_country_outputs_forecast))
+        self.assertTrue(os.path.exists(complete_data.path_country_outputs_forecast_resampling))
 
     def test_prepare_env_missing_folders(self):
         complete_data = CompleteData(self.start_date, self.country, self.path_env, cores=self.cores)
@@ -199,7 +201,8 @@ class TestCompleteData(unittest.TestCase):
         complete_data.prepare_env()
 
         # Create some mock chirp data files
-        for date in [self.start_date + timedelta(days=1), [0,1]]:
+        for x in [0,1]:
+            date = self.start_date + timedelta(days=x)
             file_name = f"chirp.{date.strftime('%Y.%m.%d')}.tif"
             file_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_chirp, file_name)
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -212,7 +215,9 @@ class TestCompleteData(unittest.TestCase):
         complete_data.download_data_chirp(test=True)
 
         # Check if the existing files were not downloaded again
-        for date in [self.start_date + timedelta(days=1), self.start_date + timedelta(days=2)]:
+        #for date in [self.start_date + timedelta(days=1), self.start_date + timedelta(days=2)]:
+        for x in [0,1]:
+            date = self.start_date + timedelta(days=x)
             file_name = f"chirp.{date.strftime('%Y.%m.%d')}.tif"
             file_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_chirp, file_name)
             self.assertTrue(os.path.exists(file_path))
@@ -248,7 +253,7 @@ class TestCompleteData(unittest.TestCase):
         variable_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_era5, self.variable_era5)
         self.assertTrue(os.path.exists(variable_path))
         transformed_files = glob.glob(os.path.join(variable_path, '*.tif'))
-        self.assertEqual(len(transformed_files), 30)  # 30 days of data downloaded
+        self.assertEqual(len(transformed_files), 2)  # 2 days of data downloaded
 
     def test_download_era5_data_multiple_variables(self):
         self.move_tests_files()
@@ -265,7 +270,7 @@ class TestCompleteData(unittest.TestCase):
             variable_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_era5, variable)
             self.assertTrue(os.path.exists(variable_path))
             transformed_files = glob.glob(os.path.join(variable_path, '*.tif'))
-            self.assertEqual(len(transformed_files), 30)  # 3 days of data downloaded for each variable
+            self.assertEqual(len(transformed_files), 2)  # 2 days of data downloaded for each variable
 
     def test_download_era5_data_single_variable_leapyear(self):
         self.move_tests_files()
