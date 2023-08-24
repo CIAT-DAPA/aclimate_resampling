@@ -22,7 +22,7 @@ def main():
 
     parser.add_argument("-C", "--country", help="Country name", required=True)
     parser.add_argument("-p", "--path", help="Path to data directory", default=os.getcwd())
-    parser.add_argument("-m", "--prev-months", type=int, help="Previous months", default=1)
+    parser.add_argument("-m", "--prev-months", type=int, help="Previous months", required=True)
     parser.add_argument("-c", "--cores", type=int, help="Number of cores", required=True)
     parser.add_argument("-y", "--forecast-year", type=int, help="Forecast year", required=True)
 
@@ -40,10 +40,10 @@ def main():
     start_date = (datetime.date.today() - pd.DateOffset(months=months_previous)).replace(day=1)
     cores = args.cores
     
-    """  ar = AClimateResampling(path, country, cores=cores, year_forecast = args.forecast_year)
+    ar = AClimateResampling(path, country, cores=cores, year_forecast = args.forecast_year)
     ar.resampling()
     dd = CompleteData(start_date,country,path,cores=cores)
-    dd.run() """
+    dd.run()
 
 if __name__ == "__main__":
     main()

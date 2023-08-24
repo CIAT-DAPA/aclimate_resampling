@@ -58,8 +58,7 @@ python -m unittest discover -s .\test
 
 ## Install
 
-This module can be used as a library in other Python projects. To install this orm as a 
-library you need to execute the following command:
+This module can be used as a library in other Python projects. You can install this module using pip:
 
 ````bash
 pip install git+https://github.com/CIAT-DAPA/aclimate_resampling
@@ -73,15 +72,15 @@ pip install git+https://github.com/CIAT-DAPA/aclimate_resampling@v0.2.0
 
 ## Run
 
-This module can be executed as a program:
+You can run the module using the command aclimate_resampling followed by the required parameters:
 
 ````bash
-python aclimate_resampling.py "ETHIOPIA" "D:\\aclimate_resampling\\data\\" "-1" 2 2023
+aclimate_resampling -C ETHIOPIA -p "D:\\aclimate_resampling\\data\\" -m 1 -c 2 -y 2023
 ````
 
 ### Params
-- 0: Country  - Name of the country to be processed
-- 1: Path root - Root path where the forecast is running
-- 2: Previous months - Amount of months that you want to add
-- 3: Cores - Number of cores to use in the calculation
-- 4: Year - Year Forecast
+-C, --country: Name of the country to be processed.
+-p, --path: Root path where the forecast is running (default: current directory).
+-m, --prev-months: Amount of months that you want to add.
+-c, --cores: Number of CPU cores to use in the calculation.
+-y, --forecast-year: Year Forecast.
