@@ -23,7 +23,7 @@ import cdsapi # https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-agrometeo
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from tools import DownloadProgressBar,DirectoryManager
+from .tools import DownloadProgressBar,DirectoryManager
 
 class CompleteData():
 
@@ -42,7 +42,8 @@ class CompleteData():
         self.path_country_inputs_forecast_dailydata = ""
         self.path_country_inputs_forecast_dailydownloaded = ""
         self.path_country_outputs = ""
-        self.path_country_outputs_resampling = ""
+        self.path_country_outputs_forecast = ""
+        self.path_country_outputs_forecast_resampling = ""
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to prepare and validate the enviroment
@@ -57,11 +58,13 @@ class CompleteData():
         self.path_country_inputs_forecast_dailydownloaded = os.path.join(self.path_country_inputs_forecast,"daily_downloaded")
 
         self.path_country_outputs = os.path.join(self.path_country,"outputs")
-        self.path_country_outputs_resampling = os.path.join(self.path_country_outputs,"resampling")
+        self.path_country_outputs_forecast = os.path.join(self.path_country,"prediccionClimatica")
+        self.path_country_outputs_forecast_resampling = os.path.join(self.path_country_outputs_forecast,"resampling")
 
         print("Validating folders needed for",self.country,"in",self.path)
         folders = [self.path_country,self.path_country_inputs,self.path_country_inputs_forecast,
-                   self.path_country_inputs_forecast_dailydata,self.path_country_outputs,self.path_country_outputs_resampling]
+                   self.path_country_inputs_forecast_dailydata,self.path_country_outputs,self.path_country_outputs_forecast,
+                   self.path_country_outputs_forecast_resampling]
         missing_files = ""
         missing_count = 0
 
@@ -83,7 +86,7 @@ class CompleteData():
     def list_ws(self):
         errors = 0
         df_ws = pd.DataFrame(columns=["ws","lat","lon","message"])
-        df_ws["ws"] =[w.split(os.path.sep)[-1] for w in glob.glob(os.path.join(self.path_country_outputs_resampling, '*'))]
+        df_ws["ws"] =[w.split(os.path.sep)[-1] for w in glob.glob(os.path.join(self.path_country_outputs_forecast_resampling, '*'))]
         for index,row in df_ws.iterrows():
             if os.path.exists(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv")):
                 df_tmp = pd.read_csv(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv"))
@@ -340,7 +343,7 @@ class CompleteData():
     # locations: Dataframe with coordinates for each location that we want to extract.
     # data: Dataframe with months generate
     def write_outputs(self,locations,data,climatology,variables=['prec','t_max','t_min','sol_rad']):
-        save_path = self.path_country_outputs_resampling
+        save_path = self.path_country_outputs_forecast_resampling
         cols_date = ['day','month','year']
         cols_total = cols_date + variables
         for index,location in tqdm(locations.iterrows(),total=locations.shape[0],desc="Writing scenarios"):
