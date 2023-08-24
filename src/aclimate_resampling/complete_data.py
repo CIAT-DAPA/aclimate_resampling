@@ -58,7 +58,7 @@ class CompleteData():
         self.path_country_inputs_forecast_dailydownloaded = os.path.join(self.path_country_inputs_forecast,"daily_downloaded")
 
         self.path_country_outputs = os.path.join(self.path_country,"outputs")
-        self.path_country_outputs_forecast = os.path.join(self.path_country,"prediccionClimatica")
+        self.path_country_outputs_forecast = os.path.join(self.path_country_outputs,"prediccionClimatica")
         self.path_country_outputs_forecast_resampling = os.path.join(self.path_country_outputs_forecast,"resampling")
 
         print("Validating folders needed for",self.country,"in",self.path)
