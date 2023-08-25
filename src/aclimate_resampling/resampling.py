@@ -4,9 +4,7 @@
   # Alliance Bioversity, CIAT. 2023
 
 import pandas as pd
-import calendar
 import numpy as np
-import random
 import os
 import warnings
 import dask.dataframe as dd
@@ -24,7 +22,6 @@ class AClimateResampling():
      self.path_outputs = os.path.join(self.path,self.country,"outputs")
      self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
      self.path_outputs_res = os.path.join(self.path_outputs_pred,"resampling")
-     self.path_outputs_val = os.path.join(self.path_outputs_res,"validation")
      self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
 
      self.year_forecast = year_forecast
@@ -219,6 +216,9 @@ class AClimateResampling():
 
     """
     # Create folders to save result
+    val_root = os.path.join(output_root, "validation")
+    if not os.path.exists(val_root):
+        os.mkdir(val_root)       
 
     # Read the climate data for the station
     clim = pd.read_csv(os.path.join(daily_data_root ,f"{station}.csv"))
@@ -407,7 +407,7 @@ class AClimateResampling():
 
       if len(list(np.unique(cpt_prob['season']))) ==2:
             base_years = base_years.iloc[:,[0,1,3] ]
-            base_years.to_csv(os.path.join(output_root,  f"{station}_Escenario_A.csv"), index = False)
+            base_years.to_csv(os.path.join(val_root,  f"{station}_Escenario_A.csv"), index = False)
 
             # Join climate data filtered for the seasons and save DataFrame in the folder created
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
@@ -420,7 +420,7 @@ class AClimateResampling():
             base_years = base_years.iloc[:,[0,1] ]
             p = {'id': [station],'issue': ['Station just have one season available'], 'season': [base_years.columns[1]]}
             problem = pd.DataFrame(p)
-            base_years.to_csv(os.path.join(output_root, f"{station}_Escenario_A.csv"), index = False)
+            base_years.to_csv(os.path.join(val_root, f"{station}_Escenario_A.csv"), index = False)
 
             # Join climate data filtered for the seasons and save DataFrame in the folder created
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
@@ -508,7 +508,7 @@ class AClimateResampling():
     
     
 
-  def master_processing(self,station, input_root, climate_data_root, verifica ,output_root, val_root, year_forecast):
+  def master_processing(self,station, input_root, climate_data_root, verifica ,output_root,  year_forecast):
 
 
     if not os.path.exists(output_root):
@@ -523,7 +523,7 @@ class AClimateResampling():
     resampling_forecast = self.forecast_station(station = station,
                                            prob = prob_normalized[0],
                                            daily_data_root = climate_data_root,
-                                           output_root = val_root,
+                                           output_root = output_root,
                                            year_forecast = year_forecast,
                                            forecast_period= prob_normalized[1])
 
