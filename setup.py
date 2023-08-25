@@ -69,6 +69,7 @@ setup(
         "xyzservices==2023.7.0",
         "zict==3.0.0",
         "zipp==3.16.2",
-        "rioxarray==0.14.1"
+        "rioxarray==0.14.1",
+        "netCDF4==1.6.4",
     ]
 )
