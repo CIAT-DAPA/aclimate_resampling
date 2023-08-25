@@ -33,11 +33,12 @@ class TestCompleteData(unittest.TestCase):
         self.locations = pd.DataFrame({ 'ws': ['Location 1', 'Location 2'], 'lat': [6.4095, 6.3830], 'lon': [-72.0211, -71.8700]})
 
         self.path_data = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
-        self.path_data_inputs = os.path.join(self.path_data, 'inputs')
+        self.path_data_inputs = os.path.join(self.path_data, self.country, 'inputs')
         self.path_data_inputs_forecast = os.path.join(self.path_data_inputs, 'prediccionClimatica')
         self.path_data_inputs_forecast_dailydata = os.path.join(self.path_data_inputs_forecast, 'dailyData')
-        self.path_data_outputs = os.path.join(self.path_data, 'outputs')
-        self.path_data_outputs_resampling = os.path.join(self.path_data_outputs, 'resampling')
+        self.path_data_outputs = os.path.join(self.path_data, self.country, 'outputs')
+        self.path_data_inputs_forecast = os.path.join(self.path_data_outputs, 'prediccionClimatica')
+        self.path_data_outputs_resampling = os.path.join(self.path_data_inputs_forecast, 'resampling')
 
         self.path_env = os.path.abspath(os.path.join(os.path.dirname(__file__), 'test_files'))
         self.path_env_country = os.path.join(self.path_env,self.country)
