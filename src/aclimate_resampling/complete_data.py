@@ -15,8 +15,9 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
-import rasterio
-import xarray
+#import rasterio
+import rioxarray 
+import xarray as xr
 import multiprocessing as mp
 
 import cdsapi # https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-agrometeorological-indicators?tab=form
@@ -230,7 +231,7 @@ class CompleteData():
                     input_file = file
                     output_file = os.path.join(save_path_era5_data,file.split(os.path.sep)[-1].replace(".nc",".tif"))
 
-                    xds = xarray.open_dataset(input_file)
+                    xds = xr.open_dataset(input_file)
                     if enum_variables[v]["transform"] == "-":
                         xds = xds - enum_variables[v]["value"]
                     elif enum_variables[v]["transform"] == "/":
@@ -259,6 +260,7 @@ class CompleteData():
         # Loop for each daily file
         for file in tqdm(files,desc="Extracting " + var):
             file_path = os.path.join(dir_path, file)
+            """
             with rasterio.open(file_path) as src:
                 # Loop for each location
                 for index,location in locations.iterrows():
@@ -268,6 +270,19 @@ class CompleteData():
                     date_str = file[date_start:date_end]
                     date = datetime.datetime.strptime(date_str, date_format)
                     data.append({'ws':location['ws'],
+                                'day':date.day,
+                                'month':date.month,
+                                'year': date.year,
+                                var: value})
+            """
+            src = rioxarray.open_rasterio(file_path)
+            # Loop for each location
+            for index,location in locations.iterrows():
+                row, col = abs(data.y - location['lat']).argmin(),abs(data.x - location['lon']).argmin()
+                value = src.values[0, row, col]
+                date_str = file[date_start:date_end]
+                date = datetime.datetime.strptime(date_str, date_format)
+                data.append({'ws':location['ws'],
                                 'day':date.day,
                                 'month':date.month,
                                 'year': date.year,
