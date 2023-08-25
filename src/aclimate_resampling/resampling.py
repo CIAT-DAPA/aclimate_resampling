@@ -244,9 +244,10 @@ class AClimateResampling():
     else:
       # Get the season for the forecast
       season = np.unique(cpt_prob['season'])
-
+      tri_seasons = ['Dec-Jan-Feb', 'Jan-Feb-Mar', 'Feb-Mar-Apr']
+      
       # Adjust the year if the forecast period is 'tri' if necessary
-      if (forecast_period == 'tri') and (season.isin(['Dec-Jan-Feb', 'Jan-Feb-Mar', 'Feb-Mar-Apr'])) :
+      if (forecast_period == 'tri') and  any(np.isin(season, tri_seasons)) :
          year_forecast = year_forecast+1 
       
       # Check if year of forecast is a leap year for February
