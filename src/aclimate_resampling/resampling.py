@@ -11,7 +11,7 @@ import dask.dataframe as dd
 
 warnings.filterwarnings("ignore")
 
-class AClimateResampling():
+class Resampling():
 
   def __init__(self,path,country, year_forecast):
      self.path = path

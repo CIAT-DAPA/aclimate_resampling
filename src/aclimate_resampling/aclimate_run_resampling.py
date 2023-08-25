@@ -5,7 +5,7 @@ import argparse
 
 from dateutil.relativedelta import relativedelta
 
-from aclimate_resampling.resampling import AClimateResampling
+from aclimate_resampling.resampling import Resampling
 from aclimate_resampling.complete_data import CompleteData
 
 def main():
@@ -38,7 +38,7 @@ def main():
     start_date = (datetime.date.today() - pd.DateOffset(months=months_previous)).replace(day=1)
     cores = args.cores
     
-    ar = AClimateResampling(path, country, year_forecast = args.forecast_year)
+    ar = Resampling(path, country, year_forecast = args.forecast_year)
     ar.resampling()
     dd = CompleteData(start_date,country,path,cores=cores)
     dd.run()
