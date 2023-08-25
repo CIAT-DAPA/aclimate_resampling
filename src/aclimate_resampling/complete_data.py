@@ -86,8 +86,11 @@ class CompleteData():
     # OUTPUT: Dataframe with a list of all weather stations
     def list_ws(self):
         errors = 0
+        excluded_folders = ["summary", "validation"]
         df_ws = pd.DataFrame(columns=["ws","lat","lon","message"])
-        df_ws["ws"] =[w.split(os.path.sep)[-1] for w in glob.glob(os.path.join(self.path_country_outputs_forecast_resampling, '*'))]
+        all_folders = glob.glob(os.path.join(self.path_country_outputs_forecast_resampling, '*'))
+        filtered_folders = [folder for folder in all_folders if folder.split(os.path.sep)[-1] not in excluded_folders]
+        df_ws["ws"] = [folder.split(os.path.sep)[-1] for folder in filtered_folders]
         for index,row in df_ws.iterrows():
             if os.path.exists(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv")):
                 df_tmp = pd.read_csv(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv"))
