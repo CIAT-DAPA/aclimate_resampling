@@ -541,7 +541,7 @@ class AClimateResampling():
     estaciones = os.listdir(self.path_inputs_daily)
     n = [i for i in estaciones if not  i.endswith("_coords.csv") ]
     n = [i.replace(".csv","") for i in n]
-    n1 = [i for i in n if i in list(verifica[0]['ids_buenos']['ids'])]
+    n1 = [i for i in n if i in list(verifica['ids_buenos']['ids'])]
 
   
     print("Processing resampling for stations")
