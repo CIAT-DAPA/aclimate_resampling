@@ -305,6 +305,7 @@ class AClimateResampling():
             #If not, select the months between the start and the end month of season
             data_range = data.loc[(data['month'] >= x['Start'].iloc[0]) & (data['month'] <= x['End'].iloc[0])]
 
+        print(data_range.head(10))
         predictand = cpt_prob['predictand'].iloc[0]
 
       # Compute total precipitation for each year in the climate data range selected
@@ -367,7 +368,8 @@ class AClimateResampling():
           merge_b.drop('plus', axis = 1,inplace = True)
 
           # Merge the climate data filtered
-          merge = merge_a.append(merge_b)
+          merge = pd.concat([merge_a, merge_b])
+
             
         else:
           if season == 'Dec-Jan-Feb':
