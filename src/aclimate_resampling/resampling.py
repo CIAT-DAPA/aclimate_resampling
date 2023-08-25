@@ -1,4 +1,4 @@
-  # -*- coding: utf-8 -*-
+   # -*- coding: utf-8 -*-
   # Functions to do climate daily data forecast per station
   # Created by: Maria Victoria Diaz
   # Alliance Bioversity, CIAT. 2023
@@ -18,12 +18,13 @@ class AClimateResampling():
   def __init__(self,path,country, year_forecast):
      self.path = path
      self.country = country
-     #self.cores = cores
      self.path_inputs = os.path.join(self.path,self.country,"inputs")
      self.path_inputs_prediccion = os.path.join(self.path_inputs,"prediccionClimatica")
      self.path_inputs_daily = os.path.join(self.path_inputs_prediccion,"dailyData")
      self.path_outputs = os.path.join(self.path,self.country,"outputs")
-     self.path_outputs_prob = os.path.join(self.path_outputs,"probForecast")
+     self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
+     self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
+
      self.year_forecast = year_forecast
      self.npartitions = 10 #int(round(cores/3)) 
 
@@ -189,7 +190,7 @@ class AClimateResampling():
     
     Args:
 
-      station: str
+    station: str
             The id of th station
     
       prob: DataFrame
