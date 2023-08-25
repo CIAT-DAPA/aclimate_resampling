@@ -278,7 +278,7 @@ class CompleteData():
             src = rioxarray.open_rasterio(file_path)
             # Loop for each location
             for index,location in locations.iterrows():
-                row, col = abs(data.y - location['lat']).argmin(),abs(data.x - location['lon']).argmin()
+                row, col = abs(src.y - location['lat']).argmin(),abs(src.x - location['lon']).argmin()
                 value = src.values[0, row, col]
                 date_str = file[date_start:date_end]
                 date = datetime.datetime.strptime(date_str, date_format)
