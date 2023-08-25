@@ -219,11 +219,11 @@ class AClimateResampling():
     """
     # Create folders to save result
 
-    if os.path.exists(os.path.join(output_root, station)):
-        output_estacion = os.path.join(output_root, station)
-    else:
-        os.mkdir(os.path.join(output_root, station))
-        output_estacion = os.path.join(output_root, station)
+    output_estacion = os.path.join(output_root, station)
+
+    if not os.path.exists(output_estacion):
+        os.mkdir(output_estacion)       
+        print("Path created for the station: {}".format(station))
 
     # Read the climate data for the station
     clim = pd.read_csv(os.path.join(daily_data_root ,f"{station}.csv"))
