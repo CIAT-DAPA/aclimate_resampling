@@ -1,9 +1,7 @@
-import sys
 import datetime
 import pandas as pd
 import os
 import argparse
-import warnings
 
 from dateutil.relativedelta import relativedelta
 

@@ -24,7 +24,7 @@ import cdsapi # https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-agrometeo
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from .tools import DownloadProgressBar,DirectoryManager
+from aclimate_resampling.tools import DownloadProgressBar,DirectoryManager
 
 class CompleteData():
 
