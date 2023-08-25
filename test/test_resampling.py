@@ -26,8 +26,8 @@ class TestResampling(unittest.TestCase):
         self.year_forecast = 2023
         self.npartitions = 10 
         self.station = "5e91e1c214daf81260ebba59"
-        self.out_st =  os.path.join(self.path_outputs, self.station)
-        self.out_st_sum =  os.path.join(self.out_st, "summary")
+        self.out_st =  os.path.join(self.path_outputs_pred, self.station)
+        self.out_st_sum =  os.path.join(self.path_outputs_pred, "summary")
 
 
     def test_output_folder_creation(self):
@@ -39,8 +39,8 @@ class TestResampling(unittest.TestCase):
 
         #clim_files = os.path.join(self.path_inputs_daily ,"f{self.station}.csv")
         #prob_files = os.path.join(self.path_outputs_prob , "probabilities.csv")
-        scenary_file = os.path.join(self.out_st ,"escenario_1.csv")
-        sum_file = os.path.join(self.out_st_sum, "max.csv")
+        scenary_file = os.path.join(self.out_st ,self.station + "_escenario_1.csv")
+        sum_file = os.path.join(self.out_st_sum, self.station + "escenario_max.csv")
 
         self.assertTrue(os.path.exists(scenary_file))
         self.assertTrue(os.path.exists(sum_file))
