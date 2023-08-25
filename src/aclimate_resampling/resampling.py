@@ -220,11 +220,6 @@ class AClimateResampling():
     # Create folders to save result
 
     
-    output_estacion = os.path.join(output_root, station)
-
-    if not os.path.exists(output_estacion):
-        os.mkdir(output_estacion)       
-        print("Path created for the station: {}".format(station))
 
     # Read the climate data for the station
     clim = pd.read_csv(os.path.join(daily_data_root ,f"{station}.csv"))
@@ -413,7 +408,7 @@ class AClimateResampling():
 
       if len(list(np.unique(cpt_prob['season']))) ==2:
             base_years = base_years.iloc[:,[0,1,3] ]
-            base_years.to_csv(os.path.join(output_estacion, "samples_to_forecast.csv"), index = False)
+            base_years.to_csv(os.path.join(output_root,  f"validation/{station}_Escenario_A.csv"), index = False)
 
             # Join climate data filtered for the seasons and save DataFrame in the folder created
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
@@ -426,7 +421,7 @@ class AClimateResampling():
             base_years = base_years.iloc[:,[0,1] ]
             p = {'id': [station],'issue': ['Station just have one season available'], 'season': [base_years.columns[1]]}
             problem = pd.DataFrame(p)
-            base_years.to_csv(os.path.join(output_estacion, "samples_to_forecast.csv"), index = False)
+            base_years.to_csv(os.path.join(output_root, f"validation/{station}_Escenario_A.csv"), index = False)
 
             # Join climate data filtered for the seasons and save DataFrame in the folder created
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
@@ -463,6 +458,9 @@ class AClimateResampling():
     if isinstance(base_years, pd.DataFrame):
     # Set the output root based on forecast period
       output_estacion = os.path.join(output_root, station)
+      if not os.path.exists(output_estacion):
+          os.mkdir(output_estacion)       
+          print("Path created for the station: {}".format(station))
 
       # Filter climate data by escenry id and save
       escenarios = []
@@ -480,7 +478,7 @@ class AClimateResampling():
 
           df = df.drop(['id', 'season'], axis = 1)
           escenarios.append(df)
-          df.to_csv(os.path.join(output_estacion ,f"escenario_{str(i)}.csv"), index=False)
+          df.to_csv(os.path.join(output_estacion ,f"escenario_{str(i+1)}.csv"), index=False)
 
       print("Escenaries saved in {}".format(output_estacion))
 
