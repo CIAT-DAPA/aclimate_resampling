@@ -476,11 +476,11 @@ class AClimateResampling():
 
       print("Escenaries saved in {}".format(output_estacion))
 
-      if os.path.exists(output_estacion+ "/summary/"):
-          summary_path = output_estacion+ "/summary"
+      if os.path.exists(os.path.join(output_estacion, "summary")):
+          summary_path = os.path.join(output_estacion, "summary")
       else:
-          os.mkdir(output_estacion+ "/summary/")
-          summary_path = output_estacion+ "/summary"
+          os.mkdir(os.path.join(output_estacion, "summary"))
+          summary_path = os.path.join(output_estacion, "summary")
 
       # Calculate maximum and minimum of escenaries by date and save
       df = pd.concat(escenarios)
