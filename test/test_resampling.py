@@ -17,17 +17,18 @@ class TestResampling(unittest.TestCase):
         # Define sample input data for testing
         self.country = "ETHIOPIA"
         self.path = test_dir
-        self.path_inputs = os.path.join(self.path,"inputs")
+        self.path_inputs = os.path.join(self.path,self.country,"inputs")
         self.path_inputs_prediccion = os.path.join(self.path_inputs,"prediccionClimatica")
         self.path_inputs_daily = os.path.join(self.path_inputs_prediccion,"dailyData")
-        self.path_outputs = os.path.join(self.path,"outputs")
+        self.path_outputs = os.path.join(self.path,self.country,"outputs")
         self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
+        self.path_outputs_res = os.path.join(self.path_outputs_pred,"resampling")
         self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
         self.year_forecast = 2023
         self.npartitions = 10 
         self.station = "5e91e1c214daf81260ebba59"
-        self.out_st =  os.path.join(self.path_outputs_pred, self.station)
-        self.out_st_sum =  os.path.join(self.path_outputs_pred, "summary")
+        self.out_st =  os.path.join(self.path_outputs_res, self.station)
+        self.out_st_sum =  os.path.join(self.path_outputs_res, "summary")
 
 
     def test_output_folder_creation(self):
