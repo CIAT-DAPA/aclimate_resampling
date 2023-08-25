@@ -40,7 +40,7 @@ class TestResampling(unittest.TestCase):
         #clim_files = os.path.join(self.path_inputs_daily ,"f{self.station}.csv")
         #prob_files = os.path.join(self.path_outputs_prob , "probabilities.csv")
         scenary_file = os.path.join(self.out_st ,self.station + "_escenario_1.csv")
-        sum_file = os.path.join(self.out_st_sum, self.station + "escenario_max.csv")
+        sum_file = os.path.join(self.out_st_sum, self.station + "_escenario_max.csv")
 
         self.assertTrue(os.path.exists(scenary_file))
         self.assertTrue(os.path.exists(sum_file))
