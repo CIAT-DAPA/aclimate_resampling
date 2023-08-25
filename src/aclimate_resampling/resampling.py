@@ -25,7 +25,6 @@ class AClimateResampling():
      self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
      self.path_outputs_res = os.path.join(self.path_outputs_pred,"resampling")
      self.path_outputs_val = os.path.join(self.path_outputs_res,"validation")
-     self.path_outputs_sum = os.path.join(self.path_outputs_res,"summary")
      self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
 
      self.year_forecast = year_forecast
@@ -461,6 +460,10 @@ class AClimateResampling():
       if not os.path.exists(output_estacion):
           os.mkdir(output_estacion)       
           print("Path created for the station: {}".format(station))
+          
+      output_summary = os.path.join(output_root, "summary")
+      if not os.path.exists(output_summary):
+          os.mkdir(output_summary)       
 
       # Filter climate data by escenry id and save
       escenarios = []
@@ -484,19 +487,19 @@ class AClimateResampling():
 
       # Calculate maximum and minimum of escenaries by date and save
       df = pd.concat(escenarios)
-      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(self.path_outputs_sum, f"{station}_escenario_max.csv"), index=False)
-      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(self.path_outputs_sum, f"{station}_escenario_min.csv"), index=False)
-      print("Minimum and Maximum of escenaries saved in {}".format(self.path_outputs_sum_path))
+      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_max.csv"), index=False)
+      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_min.csv"), index=False)
+      print("Minimum and Maximum of escenaries saved in {}".format(output_summary))
 
       vars = df.columns[3:]
 
       for i in range(len(vars)):
-         df.groupby(['month', 'year'])[vars[i]].max().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(self.path_outputs_sum, f"{station}_{vars[i]}_max.csv"), index=False)
-         df.groupby(['month', 'year'])[vars[i]].min().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(self.path_outputs_sum, f"{station}_{vars[i]}_min.csv"), index=False)
-         df.groupby(['month', 'year'])[vars[i]].mean().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(self.path_outputs_sum, f"{station}_{vars[i]}_avg.csv"), index=False)
+         df.groupby(['month', 'year'])[vars[i]].max().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_max.csv"), index=False)
+         df.groupby(['month', 'year'])[vars[i]].min().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_min.csv"), index=False)
+         df.groupby(['month', 'year'])[vars[i]].mean().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_avg.csv"), index=False)
 
            
-      print("Minimum, Maximum and Average of variables by escenary is saved in {}".format(summary_path))
+      print("Minimum, Maximum and Average of variables by escenary is saved in {}".format(output_summary))
 
 
     else:
