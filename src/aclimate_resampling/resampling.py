@@ -219,6 +219,7 @@ class AClimateResampling():
     """
     # Create folders to save result
 
+    
     output_estacion = os.path.join(output_root, station)
 
     if not os.path.exists(output_estacion):
@@ -497,6 +498,10 @@ class AClimateResampling():
 
   def master_processing(self,station, input_root, climate_data_root, verifica ,output_root, year_forecast):
 
+
+    if not os.path.exists(output_root):
+        os.mkdir(output_root)       
+        print("Path created for outputs")
 
     print("Reading the probability file and getting the forecast seasons")
     prob_normalized = self.preprocessing(input_root, verifica)
