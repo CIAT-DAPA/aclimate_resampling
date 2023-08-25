@@ -24,6 +24,7 @@ class AClimateResampling():
      self.path_outputs = os.path.join(self.path,self.country,"outputs")
      self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
      self.path_outputs_res = os.path.join(self.path_outputs_pred,"resampling")
+     self.path_outputs_val = os.path.join(self.path_outputs_res,"validation")
      self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
 
      self.year_forecast = year_forecast
@@ -219,13 +220,6 @@ class AClimateResampling():
     """
     # Create folders to save result
 
-    
-    output_estacion = os.path.join(output_root, station)
-
-    if not os.path.exists(output_estacion):
-        os.mkdir(output_estacion)       
-        print("Path created for the station: {}".format(station))
-
     # Read the climate data for the station
     clim = pd.read_csv(os.path.join(daily_data_root ,f"{station}.csv"))
 
@@ -413,7 +407,7 @@ class AClimateResampling():
 
       if len(list(np.unique(cpt_prob['season']))) ==2:
             base_years = base_years.iloc[:,[0,1,3] ]
-            base_years.to_csv(os.path.join(output_estacion, "samples_to_forecast.csv"), index = False)
+            base_years.to_csv(os.path.join(output_root,  f"{station}_Escenario_A.csv"), index = False)
 
             # Join climate data filtered for the seasons and save DataFrame in the folder created
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
@@ -426,7 +420,7 @@ class AClimateResampling():
             base_years = base_years.iloc[:,[0,1] ]
             p = {'id': [station],'issue': ['Station just have one season available'], 'season': [base_years.columns[1]]}
             problem = pd.DataFrame(p)
-            base_years.to_csv(os.path.join(output_estacion, "samples_to_forecast.csv"), index = False)
+            base_years.to_csv(os.path.join(output_root, f"{station}_Escenario_A.csv"), index = False)
 
             # Join climate data filtered for the seasons and save DataFrame in the folder created
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
@@ -463,6 +457,13 @@ class AClimateResampling():
     if isinstance(base_years, pd.DataFrame):
     # Set the output root based on forecast period
       output_estacion = os.path.join(output_root, station)
+      if not os.path.exists(output_estacion):
+          os.mkdir(output_estacion)       
+          print("Path created for the station: {}".format(station))
+          
+      output_summary = os.path.join(output_root, "summary")
+      if not os.path.exists(output_summary):
+          os.mkdir(output_summary)       
 
       # Filter climate data by escenry id and save
       escenarios = []
@@ -480,31 +481,25 @@ class AClimateResampling():
 
           df = df.drop(['id', 'season'], axis = 1)
           escenarios.append(df)
-          df.to_csv(os.path.join(output_estacion ,f"escenario_{str(i)}.csv"), index=False)
+          df.to_csv(os.path.join(output_estacion ,f"escenario_{str(i+1)}.csv"), index=False)
 
       print("Escenaries saved in {}".format(output_estacion))
 
-      if os.path.exists(os.path.join(output_root, "summary")):
-          summary_path = os.path.join(output_root, "summary")
-      else:
-          os.mkdir(os.path.join(output_root, "summary"))
-          summary_path = os.path.join(output_root, "summary")
-
       # Calculate maximum and minimum of escenaries by date and save
       df = pd.concat(escenarios)
-      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_escenario_max.csv"), index=False)
-      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_escenario_min.csv"), index=False)
-      print("Minimum and Maximum of escenaries saved in {}".format(summary_path))
+      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_max.csv"), index=False)
+      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_min.csv"), index=False)
+      print("Minimum and Maximum of escenaries saved in {}".format(output_summary))
 
       vars = df.columns[3:]
 
       for i in range(len(vars)):
-         df.groupby(['month', 'year'])[vars[i]].max().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_{vars[i]}_max.csv"), index=False)
-         df.groupby(['month', 'year'])[vars[i]].min().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_{vars[i]}_min.csv"), index=False)
-         df.groupby(['month', 'year'])[vars[i]].mean().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_{vars[i]}_avg.csv"), index=False)
+         df.groupby(['month', 'year'])[vars[i]].max().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_max.csv"), index=False)
+         df.groupby(['month', 'year'])[vars[i]].min().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_min.csv"), index=False)
+         df.groupby(['month', 'year'])[vars[i]].mean().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_avg.csv"), index=False)
 
            
-      print("Minimum, Maximum and Average of variables by escenary is saved in {}".format(summary_path))
+      print("Minimum, Maximum and Average of variables by escenary is saved in {}".format(output_summary))
 
 
     else:
@@ -513,7 +508,7 @@ class AClimateResampling():
     
     
 
-  def master_processing(self,station, input_root, climate_data_root, verifica ,output_root, year_forecast):
+  def master_processing(self,station, input_root, climate_data_root, verifica ,output_root, val_root, year_forecast):
 
 
     if not os.path.exists(output_root):
@@ -528,7 +523,7 @@ class AClimateResampling():
     resampling_forecast = self.forecast_station(station = station,
                                            prob = prob_normalized[0],
                                            daily_data_root = climate_data_root,
-                                           output_root = output_root,
+                                           output_root = val_root,
                                            year_forecast = year_forecast,
                                            forecast_period= prob_normalized[1])
 
@@ -576,6 +571,7 @@ class AClimateResampling():
                                                input_root =  self.path_outputs_prob,
                                                climate_data_root = self.path_inputs_daily,
                                                output_root = self.path_outputs_res,
+                                               val_root = self.path_outputs_val,
                                                verifica = verifica,
                                                year_forecast = self.year_forecast)
                                                   ), meta=_col
