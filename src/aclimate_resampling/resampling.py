@@ -298,7 +298,7 @@ class AClimateResampling():
           # If the start month is greater than the end month of the season, select the months from the start and less than the end
             data_range = data.loc[data['month'] >= x['Start'].iloc[0]]
             data_range_2 = data.loc[data['month'] <= x['End'].iloc[0]]
-            data_range = data_range.append(data_range_2)
+            data_range = pd.concat([data_range, data_range_2])
 
         else:
             #In climate data
