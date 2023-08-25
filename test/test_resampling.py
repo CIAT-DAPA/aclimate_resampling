@@ -5,7 +5,7 @@ import os
 import sys
 import numpy as np
 
-test_dir = os.path.dirname(__file__)
+test_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
 src_dir = os.path.abspath(os.path.join(test_dir, '..', 'src'))
 sys.path.insert(0, src_dir)
 
@@ -17,10 +17,10 @@ class TestResampling(unittest.TestCase):
         # Define sample input data for testing
         self.country = "ETHIOPIA"
         self.path = test_dir
-        self.path_inputs = os.path.join(self.path,self.country,"inputs")
+        self.path_inputs = os.path.join(self.path,"inputs")
         self.path_inputs_prediccion = os.path.join(self.path_inputs,"prediccionClimatica")
         self.path_inputs_daily = os.path.join(self.path_inputs_prediccion,"dailyData")
-        self.path_outputs = os.path.join(self.path,self.country,"outputs")
+        self.path_outputs = os.path.join(self.path,"outputs")
         self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
         self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
         self.year_forecast = 2023
