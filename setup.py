@@ -18,7 +18,7 @@ setup(
     python_requires=">=3.6",
     entry_points={
         'console_scripts': [
-            'aclimate_resampling=aclimate_resampling.aclimate_resampling:main',
+            'aclimate_resampling=aclimate_resampling.aclimate_run_resampling:main',
         ],
     },
     install_requires=[

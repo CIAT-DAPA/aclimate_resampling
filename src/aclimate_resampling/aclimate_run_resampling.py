@@ -40,7 +40,7 @@ def main():
     start_date = (datetime.date.today() - pd.DateOffset(months=months_previous)).replace(day=1)
     cores = args.cores
     
-    ar = AClimateResampling(path, country, cores=cores, year_forecast = args.forecast_year)
+    ar = AClimateResampling(path, country, year_forecast = args.forecast_year)
     ar.resampling()
     dd = CompleteData(start_date,country,path,cores=cores)
     dd.run()
