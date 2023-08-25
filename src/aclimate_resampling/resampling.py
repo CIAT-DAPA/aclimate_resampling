@@ -23,7 +23,7 @@ class AClimateResampling():
      self.path_inputs_daily = os.path.join(self.path_inputs_prediccion,"dailyData")
      self.path_outputs = os.path.join(self.path,self.country,"outputs")
      self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
-     self.path_outputs_res = os.path.join(self.path_outputs,"resampling")
+     self.path_outputs_res = os.path.join(self.path_outputs_pred,"resampling")
      self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
 
      self.year_forecast = year_forecast
@@ -245,7 +245,7 @@ class AClimateResampling():
       # Get the season for the forecast
       season = np.unique(cpt_prob['season'])
       tri_seasons = ['Dec-Jan-Feb', 'Jan-Feb-Mar', 'Feb-Mar-Apr']
-      
+
       # Adjust the year if the forecast period is 'tri' if necessary
       if (forecast_period == 'tri') and  any(np.isin(season, tri_seasons)) :
          year_forecast = year_forecast+1 
