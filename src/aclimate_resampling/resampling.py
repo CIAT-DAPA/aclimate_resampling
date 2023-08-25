@@ -218,11 +218,11 @@ class AClimateResampling():
     """
     # Create folders to save result
 
-    if os.path.exists(output_root + "/"+station):
-        output_estacion = output_root + "/"+station
+    if os.path.exists(os.path.join(output_root, station)):
+        output_estacion = os.path.join(output_root, station)
     else:
-        os.mkdir(output_root +"/"+ station)
-        output_estacion = output_root +"/"+ station
+        os.mkdir(os.path.join(output_root, station))
+        output_estacion = os.path.join(output_root, station)
 
     # Read the climate data for the station
     clim = pd.read_csv(os.path.join(daily_data_root ,"f{station}.csv"))
@@ -476,11 +476,11 @@ class AClimateResampling():
 
       print("Escenaries saved in {}".format(output_estacion))
 
-      if os.path.exists(output_estacion+ "/summary/"):
-          summary_path = output_estacion+ "/summary"
+      if os.path.exists(os.path.join(output_estacion, "summary")):
+          summary_path = os.path.join(output_estacion, "summary")
       else:
-          os.mkdir(output_estacion+ "/summary/")
-          summary_path = output_estacion+ "/summary"
+          os.mkdir(os.path.join(output_estacion, "summary"))
+          summary_path = os.path.join(output_estacion, "summary")
 
       # Calculate maximum and minimum of escenaries by date and save
       df = pd.concat(escenarios)
@@ -496,15 +496,9 @@ class AClimateResampling():
 
   def master_processing(self,station, input_root, climate_data_root, verifica ,output_root, year_forecast):
 
-    if os.path.exists(output_root):
-        output_root = output_root
-    else:
-        os.mkdir(output_root)
-        
-
 
     print("Reading the probability file and getting the forecast seasons")
-    prob_normalized = self.preprocessing(input_root, verifica, output_root)
+    prob_normalized = self.preprocessing(input_root, verifica)
 
 
     print("Resampling and creating the forecast scenaries")
