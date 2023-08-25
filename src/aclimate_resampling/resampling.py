@@ -239,7 +239,7 @@ class AClimateResampling():
       p = {'id': [station],'issue': ['Station does not have probabilites']}
       problem = pd.DataFrame(p)
 
-      return base_years, seasons_range, output_estacion, problem
+      return base_years, seasons_range,  problem
 
     else:
       # Get the season for the forecast
@@ -419,7 +419,7 @@ class AClimateResampling():
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
 
             #Return climate data filtered with sample id 
-            return base_years, seasons_range, output_estacion
+            return base_years, seasons_range
 
       else:
             print('Station just have one season available')
@@ -432,18 +432,20 @@ class AClimateResampling():
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
 
             #Return climate data filtered with sample id 
-            return base_years, seasons_range, output_estacion, problem
+            return base_years, seasons_range, problem
 
 
 
-  def save_forecast(self,output_estacion, year_forecast, seasons_range, base_years):
+  def save_forecast(self,station, output_root, year_forecast, seasons_range, base_years):
 
 
     """ Save the climate daily data by escenary and a summary of the escenary
     
     Args:
 
-      output_estacion: str
+      station: str
+              Station id to be analized
+      output_root: str
               Where outputs are going to be saved.
       year_forecast: int
               Year to forecast
@@ -460,6 +462,7 @@ class AClimateResampling():
     """
     if isinstance(base_years, pd.DataFrame):
     # Set the output root based on forecast period
+      output_estacion = os.path.join(output_root, station)
 
       # Filter climate data by escenry id and save
       escenarios = []
@@ -481,17 +484,28 @@ class AClimateResampling():
 
       print("Escenaries saved in {}".format(output_estacion))
 
-      if os.path.exists(os.path.join(output_estacion, "summary")):
-          summary_path = os.path.join(output_estacion, "summary")
+      if os.path.exists(os.path.join(output_root, "summary")):
+          summary_path = os.path.join(output_root, "summary")
       else:
-          os.mkdir(os.path.join(output_estacion, "summary"))
-          summary_path = os.path.join(output_estacion, "summary")
+          os.mkdir(os.path.join(output_root, "summary"))
+          summary_path = os.path.join(output_root, "summary")
 
       # Calculate maximum and minimum of escenaries by date and save
       df = pd.concat(escenarios)
-      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(summary_path, "max.csv"), index=False)
-      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(summary_path, "min.csv"), index=False)
+      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_escenario_max.csv"), index=False)
+      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_escenario_min.csv"), index=False)
       print("Minimum and Maximum of escenaries saved in {}".format(summary_path))
+
+      vars = df.columns[3:]
+
+      for i in range(len(vars)):
+         df.groupby(['month', 'year'])[vars[i]].max().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_{vars[i]}_max.csv"), index=False)
+         df.groupby(['month', 'year'])[vars[i]].min().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_{vars[i]}_min.csv"), index=False)
+         df.groupby(['month', 'year'])[vars[i]].mean().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(summary_path, f"{station}_{vars[i]}_avg.csv"), index=False)
+
+           
+      print("Minimum, Maximum and Average of variables by escenary is saved in {}".format(summary_path))
+
 
     else:
 
@@ -520,14 +534,14 @@ class AClimateResampling():
 
 
     print("Saving escenaries and a summary")
-    self.save_forecast(output_estacion = resampling_forecast[2],
+    self.save_forecast(output_root = output_root,
                   year_forecast = year_forecast,
                   base_years = resampling_forecast[0],
                   seasons_range = resampling_forecast[1])
 
-    if len(resampling_forecast) == 4:
+    if len(resampling_forecast) == 3:
         oth =os.path.join(output_root, "issues.csv")
-        resampling_forecast[3].to_csv(oth, mode='a', index=False, header=not os.path.exists(oth))
+        resampling_forecast[2].to_csv(oth, mode='a', index=False, header=not os.path.exists(oth))
 
     else:
         return None
