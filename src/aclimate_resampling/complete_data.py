@@ -23,7 +23,7 @@ import cdsapi # https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-agrometeo
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from tools import DownloadProgressBar,DirectoryManager
+from .tools import DownloadProgressBar,DirectoryManager
 
 class CompleteData():
 
@@ -42,7 +42,8 @@ class CompleteData():
         self.path_country_inputs_forecast_dailydata = ""
         self.path_country_inputs_forecast_dailydownloaded = ""
         self.path_country_outputs = ""
-        self.path_country_outputs_resampling = ""
+        self.path_country_outputs_forecast = ""
+        self.path_country_outputs_forecast_resampling = ""
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to prepare and validate the enviroment
@@ -57,11 +58,13 @@ class CompleteData():
         self.path_country_inputs_forecast_dailydownloaded = os.path.join(self.path_country_inputs_forecast,"daily_downloaded")
 
         self.path_country_outputs = os.path.join(self.path_country,"outputs")
-        self.path_country_outputs_resampling = os.path.join(self.path_country_outputs,"resampling")
+        self.path_country_outputs_forecast = os.path.join(self.path_country_outputs,"prediccionClimatica")
+        self.path_country_outputs_forecast_resampling = os.path.join(self.path_country_outputs_forecast,"resampling")
 
         print("Validating folders needed for",self.country,"in",self.path)
         folders = [self.path_country,self.path_country_inputs,self.path_country_inputs_forecast,
-                   self.path_country_inputs_forecast_dailydata,self.path_country_outputs,self.path_country_outputs_resampling]
+                   self.path_country_inputs_forecast_dailydata,self.path_country_outputs,self.path_country_outputs_forecast,
+                   self.path_country_outputs_forecast_resampling]
         missing_files = ""
         missing_count = 0
 
@@ -83,7 +86,7 @@ class CompleteData():
     def list_ws(self):
         errors = 0
         df_ws = pd.DataFrame(columns=["ws","lat","lon","message"])
-        df_ws["ws"] =[w.split(os.path.sep)[-1] for w in glob.glob(os.path.join(self.path_country_outputs_resampling, '*'))]
+        df_ws["ws"] =[w.split(os.path.sep)[-1] for w in glob.glob(os.path.join(self.path_country_outputs_forecast_resampling, '*'))]
         for index,row in df_ws.iterrows():
             if os.path.exists(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv")):
                 df_tmp = pd.read_csv(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv"))
@@ -93,10 +96,7 @@ class CompleteData():
                 df_ws.at[index,"message"] = "ERROR with coordinates"
         if errors > 0:
             print("WARNING: Stations with problems",df_ws.loc[df_ws["message"].isna() == False,:])
-        df_ws["ws"] = df_ws["ws"].astype('string')
-        df_ws["lat"] = df_ws["lat"].astype('float64')
-        df_ws["lon"] = df_ws["lon"].astype('float64')
-        df_ws["message"] = df_ws["message"].astype('string')
+
         return df_ws
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -123,8 +123,9 @@ class CompleteData():
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to download chirp data
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # test: Set if it is a test or not. If it is test, it just will download three or two files. By default it is False
     # OUTPUT: save rasters layers.
-    def download_data_chirp(self):
+    def download_data_chirp(self, test = False):
         save_path = self.path_country_inputs_forecast_dailydownloaded
         print(save_path)
         # Create folder for data
@@ -132,7 +133,10 @@ class CompleteData():
         self.manager.mkdir(save_path_chirp)
 
         # Calculate dates to download data
-        dates = [self.start_date + timedelta(days=x) for x in range((self.end_date - self.start_date).days + 1)]
+        if test:
+            dates = [self.start_date + timedelta(days=x) for x in [0,1]]
+        else:
+            dates = [self.start_date + timedelta(days=x) for x in range((self.end_date - self.start_date).days + 1)]
 
         # Creating a list of all files that should be downloaded
         urls = [f"http://data.chc.ucsb.edu/products/CHIRP/daily/{self.start_date.year}/chirp.{date.strftime('%Y.%m.%d')}.tif.gz" for date in dates]
@@ -147,9 +151,10 @@ class CompleteData():
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to download ERA 5 data
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # variables: List of variables to download. by default
+    # variables: List of variables to download. by default all are selected
+    # test: Set if it is a test or not. If it is test, it just will download two files. By default it is False
     # OUTPUT: save rasters layers.
-    def download_era5_data(self,variables=["t_max","t_min","sol_rad"]):
+    def download_era5_data(self,variables=["t_max","t_min","sol_rad"], test = False):
         new_crs = '+proj=longlat +datum=WGS84 +no_defs'
         # Define the variables classes and their parameters for the CDSAPI
         enum_variables ={
@@ -175,7 +180,11 @@ class CompleteData():
         # Calculate dates to download data
         year = self.start_date.strftime("%Y")
         month = self.start_date.strftime("%m")
-        days = [(self.start_date + timedelta(days=x)).strftime("%d") for x in range((self.end_date - self.start_date).days + 1)]
+        if test:
+            days = [(self.start_date + timedelta(days=x)).strftime("%d") for x in [0,1]]
+        else:
+            days = [(self.start_date + timedelta(days=x)).strftime("%d") for x in range((self.end_date - self.start_date).days + 1)]
+        
 
         # Process for each variable that should be downloaded
         for v in variables:
@@ -244,7 +253,7 @@ class CompleteData():
     # date_format: Format in which we can find the date in the filename
     # OUTPUT: list with values extracted by variable, date, and station.
     def extract_values(self,dir_path,var,locations, date_start,date_end,date_format):
-        files = [f for f in os.listdir(dir_path) if f.endswith('.tif')]
+        files = [f for f in sorted(os.listdir(dir_path)) if f.endswith('.tif')]
         data = []
 
         # Loop for each daily file
@@ -334,7 +343,7 @@ class CompleteData():
     # locations: Dataframe with coordinates for each location that we want to extract.
     # data: Dataframe with months generate
     def write_outputs(self,locations,data,climatology,variables=['prec','t_max','t_min','sol_rad']):
-        save_path = self.path_country_outputs_resampling
+        save_path = self.path_country_outputs_forecast_resampling
         cols_date = ['day','month','year']
         cols_total = cols_date + variables
         for index,location in tqdm(locations.iterrows(),total=locations.shape[0],desc="Writing scenarios"):

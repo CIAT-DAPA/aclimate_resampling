@@ -7,7 +7,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.resampling import Resampling
+from src.aclimate_resampling.resampling import Resampling
 
 class TestResampling(unittest.TestCase):
     def setUp(self):

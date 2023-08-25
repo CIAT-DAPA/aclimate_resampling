@@ -16,6 +16,11 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.6",
+    entry_points={
+        'console_scripts': [
+            'aclimate_resampling=aclimate_resampling.aclimate_resampling:main',
+        ],
+    },
     install_requires=[
         "affine==2.4.0",
         "attrs==23.1.0",
