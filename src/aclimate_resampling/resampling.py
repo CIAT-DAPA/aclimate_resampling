@@ -1,4 +1,4 @@
-  # -*- coding: utf-8 -*-
+   # -*- coding: utf-8 -*-
   # Functions to do climate daily data forecast per station
   # Created by: Maria Victoria Diaz
   # Alliance Bioversity, CIAT. 2023
@@ -18,25 +18,27 @@ class AClimateResampling():
   def __init__(self,path,country, year_forecast):
      self.path = path
      self.country = country
-     #self.cores = cores
      self.path_inputs = os.path.join(self.path,self.country,"inputs")
      self.path_inputs_prediccion = os.path.join(self.path_inputs,"prediccionClimatica")
      self.path_inputs_daily = os.path.join(self.path_inputs_prediccion,"dailyData")
      self.path_outputs = os.path.join(self.path,self.country,"outputs")
-     self.path_outputs_prob = os.path.join(self.path_outputs,"probForecast")
+     self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
+     self.path_outputs_res = os.path.join(self.path_outputs_pred,"resampling")
+     self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
+
      self.year_forecast = year_forecast
      self.npartitions = 10 #int(round(cores/3)) 
 
      pass
 
-  def mdl_verification(self,daily_weather_data, seasonal_probabilities):
+  def mdl_verification(self,daily_weather_data, prob_root):
 
 
       clima = os.listdir(daily_weather_data)
       clima = [file for file in clima if not file.endswith("_coords.csv")]
       clima = [file.split(".csv")[0] for file in clima]
 
-      prob = pd.read_csv(seasonal_probabilities)
+      prob = pd.read_csv(os.path.join(prob_root , "probabilities.csv"))
 
 
 
@@ -132,35 +134,25 @@ class AClimateResampling():
     """
 
 
-    # Get the name of months 
-    months_names = list(calendar.month_name)[1:]
-
     # Read the CPT probabilities file 
 
-    proba = pd.read_csv(prob_root)
-    ids_x = ids[0]['ids_buenos']
+    proba = pd.read_csv(os.path.join(prob_root , "probabilities.csv"))
+
+    ids_x = ids['ids_buenos']
     prob = proba[proba['id'].isin(ids_x['ids'])]
-    forecast_period = ids[1]
+    s = prob['season'].iloc[0]
+    forecast_period = "tri" if s.count("-") > 1 else "bi"
 
     # Check the period of forecast
     if forecast_period == "tri":
 
-      # Generate a string of the first letters of month names
-      months_names =months_names +['January', 'February']
-      months_names = [word[:3] for word in months_names]
-     
       # Create a list of month numbers from 1 to 12, followed by [1, 2] to create quarters
       months_numbers =list(range(1,13)) + [1,2]
 
       # Create a DataFrame representing periods of three consecutive months (with its numbers)
-      period_numbers = pd.DataFrame( [months_numbers[i:i+3] for i in range(0, len(months_numbers)-2)])
+      period= pd.DataFrame( [months_numbers[i:i+3] for i in range(0, len(months_numbers)-2)])
+      period.columns = ['Start', 'Central_month', 'End']
 
-      # Create a DataFrame representing periods of three consecutive month initials
-      combination = pd.DataFrame(['-'.join(months_names[i:i+3]) for i in range(len(months_names)-2)])
-
-      # Combine quarter's names with its month numbers in a DataFrame and change columns names
-      period = pd.concat([combination, period_numbers], axis = 1)
-      period.columns = ['Season','Start', 'Central_month', 'End']
 
       # Merge the prob DataFrame with the period DataFrame based on the 'month' and 'Central_month' columns
       prob = prob.merge(period, left_on='month', right_on='Central_month')
@@ -169,35 +161,29 @@ class AClimateResampling():
     else:
       if forecast_period == "bi":
 
-        # Generate a string of the first letters of month names
-        months_names = [word[:3] for word in months_names]
-
         # Create a list of month numbers from 1 to 12
         months_numbers = list(range(1,13))
         
         # Create a DataFrame representing periods of two consecutive months (with its numbers)
-        period_numbers = pd.DataFrame( [months_numbers[i:i+2] for i in range(0, len(months_numbers),2)])
-        
-        # Create a DataFrame representing periods of two consecutive month initials
-        combination = pd.DataFrame(['-'.join(months_names[i:i+2]) for i in range(0, len(months_names),2)])
+        period = pd.DataFrame( [months_numbers[i:i+2] for i in range(0, len(months_numbers),2)])
+        period.columns = ['Start', 'End']
 
-        # Combine bimonths with its month numbers in a DataFrame and change columns names
-        period = pd.concat([combination, period_numbers], axis = 1)
-        period.columns = ['Season','Start', 'End']
-        
+     
         # Merge the prob DataFrame with the period DataFrame based on the 'month' and 'Start' month columns
-        prob_a = prob.merge(period, left_on='month', right_on='Start')
+        prob = prob.merge(period, left_on='month', right_on='Start')
 
         # Merge the prob DataFrame with the period DataFrame based on the 'month' and 'End' month columns
         # Join with prob_a
-        prob = prob_a.append(prob.merge(period, left_on='month', right_on='End'))
+        #prob = prob_a.append(prob.merge(period, left_on='month', right_on='End'))
         prob.drop(['month'], axis = 1, inplace = True )
 
     # Reshape the 'prob' DataFrame and put the 'below', 'normal' and 'above' probability categories in a column
-    prob = prob.melt(id_vars = ['year', 'id', 'Season', 'Start','End'], var_name = 'Type', value_name = 'Prob')
+    prob = prob.melt(id_vars = ['year', 'id', 'predictand','season', 'Start','End'], var_name = 'Type', value_name = 'Prob')
     
     #Return probability DataFrame
-    return prob
+    return prob, forecast_period
+
+
 
   def forecast_station(self,station, prob, daily_data_root, output_root, year_forecast, forecast_period):
     
@@ -205,7 +191,7 @@ class AClimateResampling():
     
     Args:
 
-      station: str
+    station: str
             The id of th station
     
       prob: DataFrame
@@ -233,20 +219,15 @@ class AClimateResampling():
     """
     # Create folders to save result
 
-    if os.path.exists(output_root + "/"+station):
-        output_estacion = output_root + "/"+station
-    else:
-        os.mkdir(output_root +"/"+ station)
-        output_estacion = output_root +"/"+ station
     
-    now = datetime.now()
-    os.mkdir(output_estacion+'/'+ now.strftime("%d-%m-%Y_%H-%M-%S"))
+    output_estacion = os.path.join(output_root, station)
 
-    output_estacion = output_estacion+'/'+ now.strftime("%d-%m-%Y_%H-%M-%S")
-
+    if not os.path.exists(output_estacion):
+        os.mkdir(output_estacion)       
+        print("Path created for the station: {}".format(station))
 
     # Read the climate data for the station
-    clim = pd.read_csv(daily_data_root + "/"+station +".csv")
+    clim = pd.read_csv(os.path.join(daily_data_root ,f"{station}.csv"))
 
     # Filter the probability data for the station
     cpt_prob = prob[prob['id']==station]
@@ -258,15 +239,16 @@ class AClimateResampling():
       p = {'id': [station],'issue': ['Station does not have probabilites']}
       problem = pd.DataFrame(p)
 
-      return base_years, seasons_range, problem
+      return base_years, seasons_range, output_estacion, problem
 
     else:
       # Get the season for the forecast
-      season = cpt_prob['Season'].iloc[0]
+      season = np.unique(cpt_prob['season'])
+      tri_seasons = ['Dec-Jan-Feb', 'Jan-Feb-Mar', 'Feb-Mar-Apr']
 
       # Adjust the year if the forecast period is 'tri' if necessary
-      if forecast_period == 'tri':
-        year_forecast = [year_forecast+1 if x in ['Dec-Jan-Feb']  else year_forecast for x in season][0]
+      if (forecast_period == 'tri') and  any(np.isin(season, tri_seasons)) :
+         year_forecast = year_forecast+1 
       
       # Check if year of forecast is a leap year for February
       leap_forecast = (year_forecast%400 == 0) or (year_forecast%4==0 and year_forecast%100!=0)
@@ -306,35 +288,38 @@ class AClimateResampling():
       base_years = [] # List to store years of sample for each season
       seasons_range = [] # List to store climate data in the years of sample for each season
 
-      for season in  list(np.unique(cpt_prob['Season'])):
+      for season in  list(np.unique(cpt_prob['season'])):
 
         # Select the probabilities for the season
-        x = cpt_prob[cpt_prob['Season'] == season] 
+        x = cpt_prob[cpt_prob['season'] == season] 
 
         if x['Start'].iloc[0] > x['End'].iloc[0]:
           # In climate data 
           # If the start month is greater than the end month of the season, select the months from the start and less than the end
             data_range = data.loc[data['month'] >= x['Start'].iloc[0]]
             data_range_2 = data.loc[data['month'] <= x['End'].iloc[0]]
-            data_range = data_range.append(data_range_2)
+            data_range = pd.concat([data_range, data_range_2])
 
         else:
             #In climate data
             #If not, select the months between the start and the end month of season
             data_range = data.loc[(data['month'] >= x['Start'].iloc[0]) & (data['month'] <= x['End'].iloc[0])]
 
+        print(data_range.head(10))
+        predictand = cpt_prob['predictand'].iloc[0]
+
       # Compute total precipitation for each year in the climate data range selected
-        new_data = data_range[['year','prec']].groupby(['year']).sum().reset_index()
+        new_data = data_range[['year',predictand]].groupby(['year']).sum().reset_index()
 
         merge = data_range
-        merge['Season'] = season
+        merge['season'] = season
 
       # Calculate quantiles to determine precipitation conditions for every year in climate data selected
         cuantiles = list(np.quantile(new_data['prec'], [.33,.66]))
         new_data['condition'] =  'NA'
-        new_data.loc[new_data['prec']<= cuantiles[0], 'condition'] = 'below'
-        new_data.loc[new_data['prec']>= cuantiles[1], 'condition'] =  'above'
-        new_data.loc[(new_data['prec']> cuantiles[0]) & (new_data['prec']< cuantiles[1]), 'condition'] =  'normal'
+        new_data.loc[new_data[predictand]<= cuantiles[0], 'condition'] = 'below'
+        new_data.loc[new_data[predictand]>= cuantiles[1], 'condition'] =  'above'
+        new_data.loc[(new_data[predictand]> cuantiles[0]) & (new_data[predictand]< cuantiles[1]), 'condition'] =  'normal'
         
       # Sample 100 records in probability file of season based on probability from CPT as weights
         muestras = x[['Start', 'End', 'Type', 'Prob']].sample(100, replace = True, weights=x['Prob'])
@@ -383,7 +368,8 @@ class AClimateResampling():
           merge_b.drop('plus', axis = 1,inplace = True)
 
           # Merge the climate data filtered
-          merge = merge_a.append(merge_b)
+          merge = pd.concat([merge_a, merge_b])
+
             
         else:
           if season == 'Dec-Jan-Feb':
@@ -425,56 +411,48 @@ class AClimateResampling():
       # Join seasons samples by column by sample id and save DataFrame in the folder created
       base_years = pd.concat(base_years, axis = 1).rename(columns={'index': 'id'})
 
-      if len(list(np.unique(cpt_prob['Season']))) ==2:
+      if len(list(np.unique(cpt_prob['season']))) ==2:
             base_years = base_years.iloc[:,[0,1,3] ]
-            base_years.to_csv(output_estacion+ "/samples_for_forecast_"+ forecast_period +".csv", index = False)
+            base_years.to_csv(os.path.join(output_estacion, "samples_to_forecast.csv"), index = False)
 
             # Join climate data filtered for the seasons and save DataFrame in the folder created
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
 
             #Return climate data filtered with sample id 
-            return base_years, seasons_range
+            return base_years, seasons_range, output_estacion
 
       else:
             print('Station just have one season available')
             base_years = base_years.iloc[:,[0,1] ]
             p = {'id': [station],'issue': ['Station just have one season available'], 'season': [base_years.columns[1]]}
             problem = pd.DataFrame(p)
-            base_years.to_csv(output_estacion+ "/samples_for_forecast_"+ forecast_period +".csv", index = False)
+            base_years.to_csv(os.path.join(output_estacion, "samples_to_forecast.csv"), index = False)
 
             # Join climate data filtered for the seasons and save DataFrame in the folder created
             seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
 
             #Return climate data filtered with sample id 
-            return base_years, seasons_range, problem
+            return base_years, seasons_range, output_estacion, problem
 
-  def save_forecast(self,output_estacion, year_forecast, prob, seasons_range, base_years, station):
+
+
+  def save_forecast(self,output_estacion, year_forecast, seasons_range, base_years):
 
 
     """ Save the climate daily data by escenary and a summary of the escenary
     
     Args:
 
-      output_root: str
+      output_estacion: str
               Where outputs are going to be saved.
       year_forecast: int
               Year to forecast
-
-      forecast_period: str
-              'bi' if the period of CPT forecast is bimonthly.
-              'tri' if the period of CPT forecast is quarter.
-
-      prob: DataFrame
-              The result of preprocessing function
 
       seasons_range: DataFrame
               The result of forecast_station function
 
       base_years: DataFrame 
               The result of forecast_station function
-
-      station: str
-            The id of th station    
 
     
     Returns:
@@ -483,73 +461,72 @@ class AClimateResampling():
     if isinstance(base_years, pd.DataFrame):
     # Set the output root based on forecast period
 
-
-      # Filter probability DataFrame by station
-      cpt_prob = prob[prob['id']==station]
-
-      # If forecast period is November-December-January or December-January-February then the year of forecast is the next
-      year_forecast = [year_forecast+1 if x in ['NDJ', 'DJF']  else year_forecast for x in cpt_prob['Season'].iloc[0]][0]
-
       # Filter climate data by escenry id and save
       escenarios = []
       for i in base_years.index:
+
           df = seasons_range[(seasons_range['id'] == base_years['id'].iloc[i])]
-          df['year'] = year_forecast
-          df = df.drop(['id', 'Season'], axis = 1)
+          a = 0
+          for j, row in df.iterrows():
+              # If forecast period is November-December-January or December-January-February, then the year of forecast is the next
+              if ((row['month'] == 1) and ((row['season'] == 'Nov-Dec-Jan') or (row['season'] == 'Dec-Jan-Feb'))) or ((row['month'] == 2) and (row['season'] == 'Dec-Jan-Feb')):
+                  a = year_forecast + 1
+              else:
+                  a = year_forecast
+              df.at[j, 'year'] = a
+
+          df = df.drop(['id', 'season'], axis = 1)
           escenarios.append(df)
-          df.to_csv(output_estacion +"/escenario_"+ str(i)+".csv", index=False)
+          df.to_csv(os.path.join(output_estacion ,f"escenario_{str(i)}.csv"), index=False)
 
       print("Escenaries saved in {}".format(output_estacion))
 
-      if os.path.exists(output_estacion+ "/summary/"):
-          summary_path = output_estacion+ "summary/"
+      if os.path.exists(os.path.join(output_estacion, "summary")):
+          summary_path = os.path.join(output_estacion, "summary")
       else:
-          os.mkdir(output_estacion+ "/summary/")
-          summary_path = output_estacion+ "/summary/"
+          os.mkdir(os.path.join(output_estacion, "summary"))
+          summary_path = os.path.join(output_estacion, "summary")
 
       # Calculate maximum and minimum of escenaries by date and save
       df = pd.concat(escenarios)
-      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(summary_path+ station+"_max.csv", index=False)
-      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(summary_path+ station+"_min.csv", index=False)
+      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(summary_path, "max.csv"), index=False)
+      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(summary_path, "min.csv"), index=False)
       print("Minimum and Maximum of escenaries saved in {}".format(summary_path))
 
     else:
 
       return None
     
+    
 
   def master_processing(self,station, input_root, climate_data_root, verifica ,output_root, year_forecast):
 
-    if os.path.exists(output_root):
-        output_root = output_root
-    else:
-        os.mkdir(output_root)
-        
 
+    if not os.path.exists(output_root):
+        os.mkdir(output_root)       
+        print("Path created for outputs")
 
     print("Reading the probability file and getting the forecast seasons")
-    prob_normalized = self.preprocessing(input_root, verifica, output_root)
+    prob_normalized = self.preprocessing(input_root, verifica)
 
 
     print("Resampling and creating the forecast scenaries")
     resampling_forecast = self.forecast_station(station = station,
-                                           prob = prob_normalized,
+                                           prob = prob_normalized[0],
                                            daily_data_root = climate_data_root,
                                            output_root = output_root,
                                            year_forecast = year_forecast,
-                                           forecast_period = verifica[1])
+                                           forecast_period= prob_normalized[1])
 
 
     print("Saving escenaries and a summary")
     self.save_forecast(output_estacion = resampling_forecast[2],
                   year_forecast = year_forecast,
-                  prob = prob_normalized,
                   base_years = resampling_forecast[0],
-                  seasons_range = resampling_forecast[1],
-                  station = station)
+                  seasons_range = resampling_forecast[1])
 
     if len(resampling_forecast) == 4:
-        oth = output_root+ "/issues.csv"
+        oth =os.path.join(output_root, "issues.csv")
         resampling_forecast[3].to_csv(oth, mode='a', index=False, header=not os.path.exists(oth))
 
     else:
@@ -567,7 +544,7 @@ class AClimateResampling():
     estaciones = os.listdir(self.path_inputs_daily)
     n = [i for i in estaciones if not  i.endswith("_coords.csv") ]
     n = [i.replace(".csv","") for i in n]
-    n1 = [i for i in n if i in list(verifica[0]['ids_buenos']['ids'])]
+    n1 = [i for i in n if i in list(verifica['ids_buenos']['ids'])]
 
   
     print("Processing resampling for stations")
@@ -583,7 +560,7 @@ class AClimateResampling():
                                     df["id"].apply(lambda x: self.master_processing(station = x,
                                                input_root =  self.path_outputs_prob,
                                                climate_data_root = self.path_inputs_daily,
-                                               output_root = self.path_outputs,
+                                               output_root = self.path_outputs_res,
                                                verifica = verifica,
                                                year_forecast = self.year_forecast)
                                                   ), meta=_col
