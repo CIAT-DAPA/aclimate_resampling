@@ -23,6 +23,7 @@ class AClimateResampling():
      self.path_inputs_daily = os.path.join(self.path_inputs_prediccion,"dailyData")
      self.path_outputs = os.path.join(self.path,self.country,"outputs")
      self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
+     self.path_outputs_res = os.path.join(self.path_outputs,"resampling")
      self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
 
      self.year_forecast = year_forecast
@@ -225,7 +226,7 @@ class AClimateResampling():
         output_estacion = os.path.join(output_root, station)
 
     # Read the climate data for the station
-    clim = pd.read_csv(os.path.join(daily_data_root ,"f{station}.csv"))
+    clim = pd.read_csv(os.path.join(daily_data_root ,f"{station}.csv"))
 
     # Filter the probability data for the station
     cpt_prob = prob[prob['id']==station]
@@ -551,7 +552,7 @@ class AClimateResampling():
                                     df["id"].apply(lambda x: self.master_processing(station = x,
                                                input_root =  self.path_outputs_prob,
                                                climate_data_root = self.path_inputs_daily,
-                                               output_root = self.path_outputs,
+                                               output_root = self.path_outputs_res,
                                                verifica = verifica,
                                                year_forecast = self.year_forecast)
                                                   ), meta=_col
