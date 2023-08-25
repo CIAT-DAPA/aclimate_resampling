@@ -534,7 +534,8 @@ class AClimateResampling():
 
 
     print("Saving escenaries and a summary")
-    self.save_forecast(output_root = output_root,
+    self.save_forecast(station = station,
+                  output_root = output_root,
                   year_forecast = year_forecast,
                   base_years = resampling_forecast[0],
                   seasons_range = resampling_forecast[1])
