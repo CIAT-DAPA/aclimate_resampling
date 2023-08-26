@@ -5,8 +5,8 @@ import argparse
 
 from dateutil.relativedelta import relativedelta
 
-from resampling import Resampling
-from complete_data import CompleteData
+from aclimate_resampling.resampling import Resampling
+from aclimate_resampling.complete_data import CompleteData
 
 def main():
     # Params
