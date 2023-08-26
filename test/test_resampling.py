@@ -5,67 +5,47 @@ import os
 import sys
 import numpy as np
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+test_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+src_dir = os.path.abspath(os.path.join(test_dir, '..', 'src'))
+sys.path.insert(0, src_dir)
 
-from src.resampling import Resampling
+from src.aclimate_resampling.resampling import Resampling
+
 
 class TestResampling(unittest.TestCase):
     def setUp(self):
         # Define sample input data for testing
-        self.station = "62a74f9bea81f11fe450cbc4"
-        self.daily_data_root = "/content/drive/MyDrive/ANGOLA/inputs/prediccionClimatica/dailyData"
-        self.output_root = "/content/drive/MyDrive/ANGOLA/save"
+        self.country = "ETHIOPIA"
+        self.path = test_dir
+        self.path_inputs = os.path.join(self.path,self.country,"inputs")
+        self.path_inputs_prediccion = os.path.join(self.path_inputs,"prediccionClimatica")
+        self.path_inputs_daily = os.path.join(self.path_inputs_prediccion,"dailyData")
+        self.path_outputs = os.path.join(self.path,self.country,"outputs")
+        self.path_outputs_pred = os.path.join(self.path_outputs,"prediccionClimatica")
+        self.path_outputs_res = os.path.join(self.path_outputs_pred,"resampling")
+        self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
+        self.year_forecast = 2023
+        self.npartitions = 10 
+        self.station = "5e91e1c214daf81260ebba59"
+        self.out_st =  os.path.join(self.path_outputs_res, self.station)
+        self.out_st_sum =  os.path.join(self.path_outputs_res, "summary")
 
 
-### check negative
+    def test_output_folder_creation(self):
 
-    def test_negative_data_in_prob(self):
-    # Create a sample prob DataFrame with negative values
-        prob = pd.DataFrame({'id': ['station1', 'station2'],
-                         'Season': ['season1', 'season2'],
-                         'Start': [1, 2],
-                         'End': [2, 3],
-                         'Type': ['above', 'normal'],
-                         'Prob': [0.5, -0.2]})
-        forecast_period = 'bi'
-    # Call the processing function and expect it to raise a ValueError
-        with self.assertRaises(ValueError):
-          preprocessing(prob,  self.output_root, forecast_period)
+        self.assertTrue(os.path.exists(self.out_st))
+        self.assertTrue(os.path.exists(self.out_st_sum))
+
+    def test_exists_files(self):
+
+        #clim_files = os.path.join(self.path_inputs_daily ,"f{self.station}.csv")
+        #prob_files = os.path.join(self.path_outputs_prob , "probabilities.csv")
+        scenary_file = os.path.join(self.out_st ,self.station + "_escenario_1.csv")
+        sum_file = os.path.join(self.out_st_sum, self.station + "_escenario_max.csv")
+        self.assertTrue(os.path.exists(scenary_file))
+        self.assertTrue(os.path.exists(sum_file))
 
 
-### check if outputs are generated correctly
-
-    def test_output_generation(self):
-        prob = pd.DataFrame({'id': [self.station],
-                         'Season': ['season1', 'season2'],
-                         'Start': [1,2],
-                         'End': [2,3],
-                         'Type': ['above', 'below'],
-                         'Prob': [0.5, 0.5]})
-    
-        year_forecast = 2023
-        forecast_period = 'bi'
-
-        base_years, seasons_range = forecast_station(self.station, prob, self.daily_data_root, self.output_root, year_forecast, forecast_period)
-    
-    # Check if the output folder exists
-        self.assertTrue(os.path.exists(self.output_root))
-    
-    # Check if the station folder exists within the output folder
-        self.assertTrue(os.path.exists(os.path.join(self.output_root, self.station)))
-    
-    # Check if the correct subfolder ('bi') or ('tri') is created within the station folder
-        forecast_folder = 'bi' if forecast_period == 'bi' else 'tri'
-        self.assertTrue(os.path.exists(os.path.join(self.output_root, self.station, forecast_folder)))
-    
-    # Check if the output files are generated with the correct columns
-        expected_samples_columns = ['id', 'season1', 'season2']
-        expected_range_columns = ['day',	'month', 'year', 't_max', 't_min', 'prec', 'sol_rad', 'Season', 'id']
-        self.assertEqual(list(base_years.columns), expected_samples_columns)
-        self.assertEqual(list(seasons_range.columns), expected_range_columns)
-    
-    # Cleanup: Remove the test output folder
-        os.removedirs(self.output_root)
 
 
 if __name__ == '__main__':

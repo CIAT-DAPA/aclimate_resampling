@@ -15,15 +15,16 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
-import rasterio
-import xarray
+#import rasterio
+import rioxarray 
+import xarray as xr
 import multiprocessing as mp
 
 import cdsapi # https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-agrometeorological-indicators?tab=form
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from tools import DownloadProgressBar,DirectoryManager
+from .tools import DownloadProgressBar,DirectoryManager
 
 class CompleteData():
 
@@ -42,7 +43,8 @@ class CompleteData():
         self.path_country_inputs_forecast_dailydata = ""
         self.path_country_inputs_forecast_dailydownloaded = ""
         self.path_country_outputs = ""
-        self.path_country_outputs_resampling = ""
+        self.path_country_outputs_forecast = ""
+        self.path_country_outputs_forecast_resampling = ""
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to prepare and validate the enviroment
@@ -57,11 +59,13 @@ class CompleteData():
         self.path_country_inputs_forecast_dailydownloaded = os.path.join(self.path_country_inputs_forecast,"daily_downloaded")
 
         self.path_country_outputs = os.path.join(self.path_country,"outputs")
-        self.path_country_outputs_resampling = os.path.join(self.path_country_outputs,"resampling")
+        self.path_country_outputs_forecast = os.path.join(self.path_country_outputs,"prediccionClimatica")
+        self.path_country_outputs_forecast_resampling = os.path.join(self.path_country_outputs_forecast,"resampling")
 
         print("Validating folders needed for",self.country,"in",self.path)
         folders = [self.path_country,self.path_country_inputs,self.path_country_inputs_forecast,
-                   self.path_country_inputs_forecast_dailydata,self.path_country_outputs,self.path_country_outputs_resampling]
+                   self.path_country_inputs_forecast_dailydata,self.path_country_outputs,self.path_country_outputs_forecast,
+                   self.path_country_outputs_forecast_resampling]
         missing_files = ""
         missing_count = 0
 
@@ -82,8 +86,11 @@ class CompleteData():
     # OUTPUT: Dataframe with a list of all weather stations
     def list_ws(self):
         errors = 0
+        excluded_folders = ["summary", "validation"]
         df_ws = pd.DataFrame(columns=["ws","lat","lon","message"])
-        df_ws["ws"] =[w.split(os.path.sep)[-1] for w in glob.glob(os.path.join(self.path_country_outputs_resampling, '*'))]
+        all_folders = glob.glob(os.path.join(self.path_country_outputs_forecast_resampling, '*'))
+        filtered_folders = [folder for folder in all_folders if folder.split(os.path.sep)[-1] not in excluded_folders]
+        df_ws["ws"] = [folder.split(os.path.sep)[-1] for folder in filtered_folders]
         for index,row in df_ws.iterrows():
             if os.path.exists(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv")):
                 df_tmp = pd.read_csv(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv"))
@@ -227,7 +234,7 @@ class CompleteData():
                     input_file = file
                     output_file = os.path.join(save_path_era5_data,file.split(os.path.sep)[-1].replace(".nc",".tif"))
 
-                    xds = xarray.open_dataset(input_file)
+                    xds = xr.open_dataset(input_file)
                     if enum_variables[v]["transform"] == "-":
                         xds = xds - enum_variables[v]["value"]
                     elif enum_variables[v]["transform"] == "/":
@@ -256,6 +263,7 @@ class CompleteData():
         # Loop for each daily file
         for file in tqdm(files,desc="Extracting " + var):
             file_path = os.path.join(dir_path, file)
+            """
             with rasterio.open(file_path) as src:
                 # Loop for each location
                 for index,location in locations.iterrows():
@@ -265,6 +273,19 @@ class CompleteData():
                     date_str = file[date_start:date_end]
                     date = datetime.datetime.strptime(date_str, date_format)
                     data.append({'ws':location['ws'],
+                                'day':date.day,
+                                'month':date.month,
+                                'year': date.year,
+                                var: value})
+            """
+            src = rioxarray.open_rasterio(file_path)
+            # Loop for each location
+            for index,location in locations.iterrows():
+                row, col = abs(src.y - location['lat']).argmin(),abs(src.x - location['lon']).argmin()
+                value = src.values[0, row, col]
+                date_str = file[date_start:date_end]
+                date = datetime.datetime.strptime(date_str, date_format)
+                data.append({'ws':location['ws'],
                                 'day':date.day,
                                 'month':date.month,
                                 'year': date.year,
@@ -340,7 +361,7 @@ class CompleteData():
     # locations: Dataframe with coordinates for each location that we want to extract.
     # data: Dataframe with months generate
     def write_outputs(self,locations,data,climatology,variables=['prec','t_max','t_min','sol_rad']):
-        save_path = self.path_country_outputs_resampling
+        save_path = self.path_country_outputs_forecast_resampling
         cols_date = ['day','month','year']
         cols_total = cols_date + variables
         for index,location in tqdm(locations.iterrows(),total=locations.shape[0],desc="Writing scenarios"):
