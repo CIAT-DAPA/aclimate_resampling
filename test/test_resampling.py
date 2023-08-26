@@ -33,8 +33,6 @@ class TestResampling(unittest.TestCase):
 
     def test_output_folder_creation(self):
 
-        print(self.out_st)
-        print(self.out_st_sum)
         self.assertTrue(os.path.exists(self.out_st))
         self.assertTrue(os.path.exists(self.out_st_sum))
 
@@ -44,8 +42,6 @@ class TestResampling(unittest.TestCase):
         #prob_files = os.path.join(self.path_outputs_prob , "probabilities.csv")
         scenary_file = os.path.join(self.out_st ,self.station + "_escenario_1.csv")
         sum_file = os.path.join(self.out_st_sum, self.station + "_escenario_max.csv")
-        print(scenary_file)
-        print(sum_file)
         self.assertTrue(os.path.exists(scenary_file))
         self.assertTrue(os.path.exists(sum_file))
 
