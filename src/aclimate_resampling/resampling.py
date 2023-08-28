@@ -481,7 +481,7 @@ class Resampling():
 
           df = df.drop(['id', 'season'], axis = 1)
           escenarios.append(df)
-          df.to_csv(os.path.join(output_estacion ,f"escenario_{str(i+1)}.csv"), index=False)
+          df.to_csv(os.path.join(output_estacion ,f"{station}_escenario_{str(i+1)}.csv"), index=False)
 
       print("Escenaries saved in {}".format(output_estacion))
 
