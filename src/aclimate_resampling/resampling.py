@@ -571,7 +571,6 @@ class Resampling():
                                                input_root =  self.path_outputs_prob,
                                                climate_data_root = self.path_inputs_daily,
                                                output_root = self.path_outputs_res,
-                                               val_root = self.path_outputs_val,
                                                verifica = verifica,
                                                year_forecast = self.year_forecast)
                                                   ), meta=_col
