@@ -332,6 +332,8 @@ class CompleteData():
     def extract_climatology(self,locations):
         save_path = self.path_country_inputs_forecast_dailydata
         df = pd.DataFrame()
+        dfs = []
+        
         # Loop for each location
         for index,location in tqdm(locations.iterrows(),total=locations.shape[0],desc="Calculating climatology"):
             file_path = os.path.join(save_path,location["ws"] + ".csv")
@@ -344,12 +346,9 @@ class CompleteData():
                     }).reset_index()
             df_tmp = df_tmp.loc[df_tmp['month'] == self.start_date.month,:]
             df_tmp['ws'] = location["ws"]
+            dfs.append(df_tmp)
 
-            if df.shape[0] == 0:
-                df = df_tmp.copy()
-            else:
-                df = pd.merge(df,df_tmp,how='left',on=['ws','month','day'])
-
+        df = pd.concat(dfs, ignore_index=True)
         df["year"] = self.start_date.year
         df = df[['ws','day', 'month', 'year', 'prec','t_max', 't_min', 'sol_rad']]
 
@@ -370,15 +369,22 @@ class CompleteData():
                 # Preparing original files
                 df_tmp = pd.read_csv(f)
                 # Remove records old
-                df_tmp = df_tmp.loc[(df_tmp["year"] != self.start_date.year) & (df_tmp["month"] != self.start_date.month),:]
-
+                current_year = self.start_date.year
+                current_month = self.start_date.month
+                df_tmp = df_tmp.loc[
+                ((df_tmp["year"] > current_year) | (df_tmp["month"] > current_month)),
+                :]
+                #df_tmp = df_tmp.loc[(df_tmp["year"] != self.start_date.year) &  (df_tmp["month"] != self.start_date.month),:]
                 # filtering data for this location
                 df_data = data.loc[data["ws"] == location["ws"],cols_total]
-
+                df_data = df_data.loc[
+                (df_data["year"] <= current_year) & (df_data["month"] <= current_month),
+                :]
                 # We validate if we have data or we should use the climatology
                 if df_data.shape[0] == 0:
                     df_data = climatology.loc[climatology["ws"] == location["ws"],cols_total]
 
+                df_data[variables] = df_data[variables].fillna(0)
                 #
                 #df_data = df_data.append(df_tmp,ignore_index=True)
                 df_data = pd.concat([df_data,df_tmp], ignore_index=True)
@@ -432,11 +438,12 @@ class CompleteData():
         print("Listing stations")
         df_ws = self.list_ws()
         print("Listed stations")
-
         print("Adding data started!")
         pool = mp.Pool(processes=self.cores)
         chunks = np.array_split(df_ws, self.cores)
-        chunk_processes = [pool.apply_async(self.run_chunk, args=(chunk)) for chunk in chunks]
+        chunk_processes = [pool.apply_async(self.run_chunk, args=(chunk,)) for chunk in chunks]
+        for process in chunk_processes:
+            process.get()
         print("Added data!")
 
         print("Process finished")
