@@ -292,6 +292,21 @@ class CompleteData():
                                 var: value})
         #print(data)
         return data
+    
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-==-=-==-=-=
+    # Function to filter Data frames with actual date
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-==-=-==-=-=
+    # data_frame: Dataframe with with data which will be filtered .
+    # OUTPUT: This return Dataframe filtered.
+    def filter_extract_data(self, data_frame):
+        current_year = self.start_date.year
+        current_month = self.start_date.month
+
+        filter_data_frame = data_frame.loc[
+                (data_frame["year"] <= current_year) & (data_frame["month"] <= current_month),
+                :]
+        return filter_data_frame
+    
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to extract Chirp data
@@ -303,6 +318,7 @@ class CompleteData():
         dir_path = os.path.join(save_path,"chirp")
         data = self.extract_values(dir_path,'prec',locations,-14,-4,'%Y.%m.%d')
         df = pd.DataFrame(data)
+        df = self.filter_extract_data(df)
         return df
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -322,6 +338,7 @@ class CompleteData():
                 df = df_tmp.copy()
             else:
                 df = pd.merge(df,df_tmp,how='left',on=['ws','day','month','year'])
+        df = self.filter_extract_data(df)
         return df
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -332,6 +349,8 @@ class CompleteData():
     def extract_climatology(self,locations):
         save_path = self.path_country_inputs_forecast_dailydata
         df = pd.DataFrame()
+        dfs = []
+        
         # Loop for each location
         for index,location in tqdm(locations.iterrows(),total=locations.shape[0],desc="Calculating climatology"):
             file_path = os.path.join(save_path,location["ws"] + ".csv")
@@ -344,12 +363,9 @@ class CompleteData():
                     }).reset_index()
             df_tmp = df_tmp.loc[df_tmp['month'] == self.start_date.month,:]
             df_tmp['ws'] = location["ws"]
+            dfs.append(df_tmp)
 
-            if df.shape[0] == 0:
-                df = df_tmp.copy()
-            else:
-                df = pd.merge(df,df_tmp,how='left',on=['ws','month','day'])
-
+        df = pd.concat(dfs, ignore_index=True)
         df["year"] = self.start_date.year
         df = df[['ws','day', 'month', 'year', 'prec','t_max', 't_min', 'sol_rad']]
 
@@ -360,7 +376,7 @@ class CompleteData():
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # locations: Dataframe with coordinates for each location that we want to extract.
     # data: Dataframe with months generate
-    def write_outputs(self,locations,data,climatology,variables=['prec','t_max','t_min','sol_rad']):
+    def write_outputs(self,locations,data,climatology,variables=['t_max','t_min','prec','sol_rad']):
         save_path = self.path_country_outputs_forecast_resampling
         cols_date = ['day','month','year']
         cols_total = cols_date + variables
@@ -370,11 +386,15 @@ class CompleteData():
                 # Preparing original files
                 df_tmp = pd.read_csv(f)
                 # Remove records old
-                df_tmp = df_tmp.loc[(df_tmp["year"] != self.start_date.year) & (df_tmp["month"] != self.start_date.month),:]
-
+                current_year = self.start_date.year
+                current_month = self.start_date.month
+                df_tmp = df_tmp.loc[
+                ((df_tmp["year"] > current_year) | (df_tmp["month"] > current_month)),
+                :]
+                #df_tmp = df_tmp.loc[(df_tmp["year"] != self.start_date.year) &  (df_tmp["month"] != self.start_date.month),:]
                 # filtering data for this location
                 df_data = data.loc[data["ws"] == location["ws"],cols_total]
-
+                
                 # We validate if we have data or we should use the climatology
                 if df_data.shape[0] == 0:
                     df_data = climatology.loc[climatology["ws"] == location["ws"],cols_total]
@@ -397,12 +417,11 @@ class CompleteData():
         print("Extracting ERA 5 data")
         df_data_era5 = self.extract_era5_data(df_chunk)
         print("Extracted ERA 5 data")
-
+        
         print("Merging CHIRPS and ERA 5")
         df_data = pd.DataFrame()
         df_data = pd.merge(df_data_chirp,df_data_era5,how='outer',on=['ws','day','month','year'])
         print("Merged CHIRPS and ERA 5")
-
         print("Extracting Climatology data")
         df_data_climatology = self.extract_climatology(df_chunk)
         print("Extracted Climatology data")
@@ -432,11 +451,12 @@ class CompleteData():
         print("Listing stations")
         df_ws = self.list_ws()
         print("Listed stations")
-
         print("Adding data started!")
         pool = mp.Pool(processes=self.cores)
         chunks = np.array_split(df_ws, self.cores)
-        chunk_processes = [pool.apply_async(self.run_chunk, args=(chunk)) for chunk in chunks]
+        chunk_processes = [pool.apply_async(self.run_chunk, args=(chunk,)) for chunk in chunks]
+        for process in chunk_processes:
+            process.get()
         print("Added data!")
 
         print("Process finished")
