@@ -163,7 +163,7 @@ class Resampling():
         months_numbers = list(range(1,13))
         
         # Create a DataFrame representing periods of two consecutive months (with its numbers)
-        period = pd.DataFrame( [months_numbers[i:i+2] for i in range(0, len(months_numbers),2)])
+        period = pd.DataFrame( [months_numbers[i:i+2] for i in range(0, len(months_numbers)-1)])
         period.columns = ['Start', 'End']
 
      
