@@ -279,8 +279,8 @@ class Resampling():
 
       # Start the resampling process for every season of analysis in CPT probabilities file
 
-      base_years = [] # List to store years of sample for each season
-      seasons_range = [] # List to store climate data in the years of sample for each season
+      base_years =  pd.DataFrame() # List to store years of sample for each season
+      seasons_range = pd.DataFrame() # List to store climate data in the years of sample for each season
 
       for season in  list(np.unique(cpt_prob['season'])):
 
@@ -299,7 +299,6 @@ class Resampling():
             #If not, select the months between the start and the end month of season
             data_range = data.loc[(data['month'] >= x['Start'].iloc[0]) & (data['month'] <= x['End'].iloc[0])]
 
-        print(data_range.head(10))
         predictand = cpt_prob['predictand'].iloc[0]
 
       # Compute total precipitation for each year in the climate data range selected
@@ -385,7 +384,7 @@ class Resampling():
             merge_b.drop('plus', axis = 1,inplace = True)
 
             # Merge filtered data
-            merge = merge_a.append(merge_b)
+            merge = pd.concat([merge_a, merge_b])
 
           else:
             # If season is another, filter climate data of the years in sample and get the sample id
@@ -395,22 +394,22 @@ class Resampling():
             merge = merge.drop(season, axis = 1)
 
 
-        # Append the 100 years in the sample for every season in the list
-        base_years.append(muestras_by_type[['index',season]])
+        # Join seasons samples by column by sample id
+        base_years = pd.concat([base_years, muestras_by_type[['index',season]]], axis = 1,ignore_index=True)
 
-        # Append the climate data filtered for every season in the list
-        seasons_range.append(merge)
-
-   
-      # Join seasons samples by column by sample id and save DataFrame in the folder created
-      base_years = pd.concat(base_years, axis = 1).rename(columns={'index': 'id'})
+        # Join climate data filtered for the seasons 
+        seasons_range = pd.concat([merge]).rename(columns={'index': 'id'})
+     
 
       if len(list(np.unique(cpt_prob['season']))) ==2:
+
+            s = list(np.unique(cpt_prob['season']))
             base_years = base_years.iloc[:,[0,1,3] ]
+            base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1]})
+            base_years['id'] = base_years['id'] + 1
+            seasons_range['id'] = seasons_range['id']+1
             base_years.to_csv(os.path.join(val_root,  f"{station}_Escenario_A.csv"), index = False)
 
-            # Join climate data filtered for the seasons and save DataFrame in the folder created
-            seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
 
             #Return climate data filtered with sample id 
             return base_years, seasons_range
@@ -418,12 +417,14 @@ class Resampling():
       else:
             print('Station just have one season available')
             base_years = base_years.iloc[:,[0,1] ]
+            s = list(np.unique(cpt_prob['season']))
+            base_years = base_years.iloc[:,[0,1] ]
+            base_years = base_years.rename(columns={0: 'id',1: s[0]})
+            base_years['id'] = base_years['id'] + 1
+            seasons_range['id'] = seasons_range['id']+1
             p = {'id': [station],'issue': ['Station just have one season available'], 'season': [base_years.columns[1]]}
             problem = pd.DataFrame(p)
             base_years.to_csv(os.path.join(val_root, f"{station}_Escenario_A.csv"), index = False)
-
-            # Join climate data filtered for the seasons and save DataFrame in the folder created
-            seasons_range = pd.concat(seasons_range).rename(columns={'index': 'id'})
 
             #Return climate data filtered with sample id 
             return base_years, seasons_range, problem
