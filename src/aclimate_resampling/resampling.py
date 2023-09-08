@@ -259,7 +259,8 @@ class Resampling():
         
         # If year of forecast is a leap year and a year in climate data is not, then add one day to february in climate data
         if leap_forecast == True and year.iloc[0] == False:
-          year_data.append(year_data.sample(1), ignore_index=True)
+          #year_data.append(year_data.sample(1), ignore_index=True)
+          year_data = pd.concat([year_data, year_data.sample(1)], ignore_index=True)
           year_data.iloc[-1,0] = 29
         else:
 
