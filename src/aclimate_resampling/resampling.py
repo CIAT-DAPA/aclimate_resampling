@@ -252,7 +252,7 @@ class Resampling():
       clim_feb['leap'] = [True if (year%400 == 0) or (year%4==0 and year%100!=0) else False for year in clim_feb['year']]
 
       # Standardize february months by year according to year of forecat
-      february = []
+      february = pd.DataFrame()
       for i in np.unique(clim_feb['year']):
         year_data =  clim_feb.loc[clim_feb['year']==i,:]
         year = year_data.loc[:,'leap']
@@ -270,10 +270,10 @@ class Resampling():
 
             # If both year of forecast and year in climate data are leap years or not, then keep climate data the same
             year_data = year_data
-      february.append(year_data)
+      february = pd.concat([february, year_data])
 
       # Concat standardized february data with the rest of climate data
-      data = pd.concat(february).drop(['leap'], axis = 1 )
+      data = february.drop(['leap'], axis = 1 )
       data = pd.concat([data,clim.loc[clim['month'] != 2]]).sort_values(['year','month'])
 
 
