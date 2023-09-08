@@ -216,9 +216,10 @@ class Resampling():
 
     """
     # Create folders to save result
+    # Create folders to save result
     val_root = os.path.join(output_root, "validation")
     if not os.path.exists(val_root):
-        os.mkdir(val_root)       
+        os.mkdir(val_root)
 
     # Read the climate data for the station
     clim = pd.read_csv(os.path.join(daily_data_root ,f"{station}.csv"))
@@ -242,8 +243,8 @@ class Resampling():
 
       # Adjust the year if the forecast period is 'tri' if necessary
       if (forecast_period == 'tri') and  any(np.isin(season, tri_seasons)) :
-         year_forecast = year_forecast+1 
-      
+         year_forecast = year_forecast+1
+
       # Check if year of forecast is a leap year for February
       leap_forecast = (year_forecast%400 == 0) or (year_forecast%4==0 and year_forecast%100!=0)
 
@@ -256,10 +257,9 @@ class Resampling():
       for i in np.unique(clim_feb['year']):
         year_data =  clim_feb.loc[clim_feb['year']==i,:]
         year = year_data.loc[:,'leap']
-        
+
         # If year of forecast is a leap year and a year in climate data is not, then add one day to february in climate data
         if leap_forecast == True and year.iloc[0] == False:
-          #year_data.append(year_data.sample(1), ignore_index=True)
           year_data = pd.concat([year_data, year_data.sample(1)], ignore_index=True)
           year_data.iloc[-1,0] = 29
         else:
@@ -271,12 +271,12 @@ class Resampling():
 
             # If both year of forecast and year in climate data are leap years or not, then keep climate data the same
             year_data = year_data
-      february = pd.concat([february, year_data])
+        february = pd.concat([february, year_data])
+
 
       # Concat standardized february data with the rest of climate data
       data = february.drop(['leap'], axis = 1 )
       data = pd.concat([data,clim.loc[clim['month'] != 2]]).sort_values(['year','month'])
-
 
       # Start the resampling process for every season of analysis in CPT probabilities file
 
@@ -286,27 +286,17 @@ class Resampling():
       for season in  list(np.unique(cpt_prob['season'])):
 
         # Select the probabilities for the season
-        x = cpt_prob[cpt_prob['season'] == season] 
+        x = cpt_prob[cpt_prob['season'] == season]
 
-        if x['Start'].iloc[0] > x['End'].iloc[0]:
-          # In climate data 
-          # If the start month is greater than the end month of the season, select the months from the start and less than the end
-            data_range = data.loc[data['month'] >= x['Start'].iloc[0]]
-            data_range_2 = data.loc[data['month'] <= x['End'].iloc[0]]
-            data_range = pd.concat([data_range, data_range_2])
-
-        else:
-            #In climate data
-            #If not, select the months between the start and the end month of season
-            data_range = data.loc[(data['month'] >= x['Start'].iloc[0]) & (data['month'] <= x['End'].iloc[0])]
 
         predictand = cpt_prob['predictand'].iloc[0]
 
-      # Compute total precipitation for each year in the climate data range selected
-        new_data = data_range[['year',predictand]].groupby(['year']).sum().reset_index()
 
-        merge = data_range
-        merge['season'] = season
+      # Compute total precipitation for each year in the climate data range selected
+        new_data = data[['year',predictand]].groupby(['year']).sum().reset_index()
+
+        data['season'] = season
+
 
       # Calculate quantiles to determine precipitation conditions for every year in climate data selected
         cuantiles = list(np.quantile(new_data['prec'], [.33,.66]))
@@ -314,49 +304,49 @@ class Resampling():
         new_data.loc[new_data[predictand]<= cuantiles[0], 'condition'] = 'below'
         new_data.loc[new_data[predictand]>= cuantiles[1], 'condition'] =  'above'
         new_data.loc[(new_data[predictand]> cuantiles[0]) & (new_data[predictand]< cuantiles[1]), 'condition'] =  'normal'
-        
+
       # Sample 100 records in probability file of season based on probability from CPT as weights
         muestras = x[['Start', 'End', 'Type', 'Prob']].sample(100, replace = True, weights=x['Prob'])
         muestras = muestras.set_index(pd.Index(list(range(0,100))))
-      
+
       # Randomly get one year from the total precipitation data based on precipitation conditions selected in the 100 data sample.
         muestras_by_type = []
-        for i in muestras.index: 
+        for i in muestras.index:
           m = new_data.loc[new_data['condition'] == muestras['Type'].iloc[i]].sample(1)
-          muestras_by_type.append(m) 
-        
+          muestras_by_type.append(m)
+
         # Join the 100 samples and add sample id
         muestras_by_type = pd.concat(muestras_by_type).reset_index()
-        muestras_by_type['index'] = muestras.index
-        muestras_by_type = muestras_by_type.set_index(pd.Index(list(range(0,100))))
+        muestras_by_type['index'] = muestras.index 
+        #muestras_by_type = muestras_by_type.set_index(pd.Index(list(range(0,100))))
 
 
-        # Rename year column with season name  
+        # Rename year column with season name
         muestras_by_type = muestras_by_type.rename(columns = {'year':season})
-
-        # Calculate the next year of the year sample and assign the same sample id 
-        muestras_by_type['plus'] = list(map(lambda x: x + 1, muestras_by_type[season]))
 
         #Set the sample years as list and sort
         years = list(muestras_by_type[season])
         years.sort()
+ 
 
         if season == 'Nov-Dec-Jan':
-          # If season is November-December-January 
+          # If season is November-December-January
+
+          # Calculate the next year of the year sample and assign the same sample id
+          muestras_by_type['plus'] = list(map(lambda x: x + 1, muestras_by_type[season]))
+        
 
           years_plus = list(map(lambda x: x + 1, years))
           years_plus.sort()
-        
-          months_numbers =[11,12]
 
-          # Filter the climate data of the last two months of the years in the sample and get the sample id 
-          merge_a = merge[merge['year'].isin(years)]
-          merge_a = merge_a[merge_a['month'].isin(months_numbers)]
+          # Filter the climate data of the last two months of the years in the sample and get the sample id
+          merge_a =  data[data['year'].isin(years)]
+          merge_a = merge_a[merge_a['month'].isin([11,12])]
           merge_a = pd.merge(merge_a, muestras_by_type[['index', season]], left_on = 'year', right_on = season)
           merge_a.drop(season, axis = 1,inplace = True)
 
           # Filter the climate data of the first month in the next year of the years in sample and get the sample id
-          merge_b = merge[merge['year'].isin(years_plus)]
+          merge_b = data[data['year'].isin(years_plus)]
           merge_b = merge_b[merge_b['month'] == 1]
           merge_b = pd.merge(merge_b, muestras_by_type[['index', 'plus']], left_on = 'year', right_on = 'plus')
           merge_b.drop('plus', axis = 1,inplace = True)
@@ -364,43 +354,53 @@ class Resampling():
           # Merge the climate data filtered
           merge = pd.concat([merge_a, merge_b])
 
-            
+
         else:
           if season == 'Dec-Jan-Feb':
             # If season is December-January-February
 
+
+            # Calculate the next year of the year sample and assign the same sample id
+            muestras_by_type['plus'] = list(map(lambda x: x + 1, muestras_by_type[season]))
+  
             years_plus = list(map(lambda x: x + 1, years))
             years_plus.sort()
-            months_numbers =[1,2]
 
-            # Filter the climate data of the last month of the years in the sample and get the sample id 
-            merge_a = merge[merge['year'].isin(years)]
+            # Filter the climate data of the last month of the years in the sample and get the sample id
+            
+            merge_a = data[data['year'].isin(years)]
             merge_a = merge_a[merge_a['month'] == 12]
             merge_a = pd.merge(merge_a, muestras_by_type[['index', season]], left_on = 'year', right_on = season)
-      
+            merge_a = merge_a.drop(columns = [season, 'season'])
+
             # Filter the climate data of the first two months in the next year of the years in sample and get the sample id
-            merge_b = merge[merge['year'].isin(years_plus)]
-            merge_b = merge_b[merge_b['month'].isin(months_numbers)]
+           
+            merge_b = data[data['year'].isin(years_plus)]
+            merge_b = merge_b[(merge_b['month'] >= 1) & (merge_b['month'] <=2)]
             merge_b = pd.merge(merge_b, muestras_by_type[['index', 'plus']], left_on = 'year', right_on = 'plus')
-            merge_b.drop('plus', axis = 1,inplace = True)
+            merge_b = merge_b.drop(columns = ['plus', 'season'])
 
             # Merge filtered data
             merge = pd.concat([merge_a, merge_b])
+  
+            
 
           else:
             # If season is another, filter climate data of the years in sample and get the sample id
 
-            merge = merge.loc[merge['year'].isin(muestras_by_type[season])]
+            merge = data.loc[data['year'].isin(muestras_by_type[season])]
+            merge = merge.loc[(merge['month'] >= x['Start'].iloc[0]) & (merge['month'] <= x['End'].iloc[0])]
             merge = pd.merge(merge,muestras_by_type[['index',season]],left_on = 'year', right_on = season)
-            merge = merge.drop(season, axis = 1)
-
+            merge = merge.drop(columns = [season, 'season'])
 
         # Join seasons samples by column by sample id
         base_years = pd.concat([base_years, muestras_by_type[['index',season]]], axis = 1,ignore_index=True)
 
-        # Join climate data filtered for the seasons 
-        seasons_range = pd.concat([merge]).rename(columns={'index': 'id'})
-     
+        # Join climate data filtered for the seasons
+        seasons_range = pd.concat([seasons_range, merge])
+        
+
+      seasons_range = seasons_range.rename(columns = {'index': 'id'})
 
       if len(list(np.unique(cpt_prob['season']))) ==2:
 
@@ -409,10 +409,11 @@ class Resampling():
             base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1]})
             base_years['id'] = base_years['id'] + 1
             seasons_range['id'] = seasons_range['id']+1
+            seasons_range = seasons_range.sort_values(by=['year', 'month'], ascending=True)
             base_years.to_csv(os.path.join(val_root,  f"{station}_Escenario_A.csv"), index = False)
 
 
-            #Return climate data filtered with sample id 
+            #Return climate data filtered with sample id
             return base_years, seasons_range
 
       else:
@@ -423,11 +424,12 @@ class Resampling():
             base_years = base_years.rename(columns={0: 'id',1: s[0]})
             base_years['id'] = base_years['id'] + 1
             seasons_range['id'] = seasons_range['id']+1
+            seasons_range = seasons_range.drop(columns= ['index'])
             p = {'id': [station],'issue': ['Station just have one season available'], 'season': [base_years.columns[1]]}
             problem = pd.DataFrame(p)
             base_years.to_csv(os.path.join(val_root, f"{station}_Escenario_A.csv"), index = False)
 
-            #Return climate data filtered with sample id 
+            #Return climate data filtered with sample id
             return base_years, seasons_range, problem
 
 
