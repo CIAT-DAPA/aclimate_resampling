@@ -312,6 +312,13 @@ class Resampling():
         muestras_by_type = []
         for i in muestras.index:
           m = new_data.loc[new_data['condition'] == muestras['Type'].iloc[i]].sample(1)
+
+          if any(m['year'] == max(new_data['year'])):
+            b = new_data.loc[new_data['condition'] == muestras['Type'].iloc[i]]
+            m = b[b['year'] != max(new_data['year'])].sample(1)
+          else:
+            m = m
+          
           muestras_by_type.append(m)
 
         # Join the 100 samples and add sample id
@@ -400,7 +407,6 @@ class Resampling():
         
 
       seasons_range = seasons_range.rename(columns = {'index': 'id'})
-      print(list(np.unique(seasons_range[seasons_range['id'] == 1]['month'])))
 
       if len(list(np.unique(cpt_prob['season']))) ==2:
 
@@ -473,6 +479,8 @@ class Resampling():
       for i in base_years.index:
 
           df = seasons_range[(seasons_range['id'] == base_years['id'].iloc[i])]
+          print(i)
+          print(list(np.unique(df['month'])))
           a = 0
           for j, row in df.iterrows():
               # If forecast period is November-December-January or December-January-February, then the year of forecast is the next
