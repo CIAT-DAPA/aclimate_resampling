@@ -418,6 +418,7 @@ class CompleteData():
                 #df_data = df_data.append(df_tmp,ignore_index=True)
                 df_data = pd.concat([df_data,df_tmp], ignore_index=True)
                 df_data = df_data[cols_total]
+                df_data = df_data.sort_values(by=['year','month','day'])
                 df_data.to_csv(f,index=False)
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
