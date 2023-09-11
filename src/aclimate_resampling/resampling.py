@@ -216,7 +216,6 @@ class Resampling():
 
     """
     # Create folders to save result
-    # Create folders to save result
     val_root = os.path.join(output_root, "validation")
     if not os.path.exists(val_root):
         os.mkdir(val_root)
@@ -313,6 +312,13 @@ class Resampling():
         muestras_by_type = []
         for i in muestras.index:
           m = new_data.loc[new_data['condition'] == muestras['Type'].iloc[i]].sample(1)
+
+          if any(m['year'] == max(new_data['year'])):
+            b = new_data.loc[new_data['condition'] == muestras['Type'].iloc[i]]
+            m = b[b['year'] != max(new_data['year'])].sample(1)
+          else:
+            m = m
+          
           muestras_by_type.append(m)
 
         # Join the 100 samples and add sample id
@@ -371,33 +377,33 @@ class Resampling():
             merge_a = data[data['year'].isin(years)]
             merge_a = merge_a[merge_a['month'] == 12]
             merge_a = pd.merge(merge_a, muestras_by_type[['index', season]], left_on = 'year', right_on = season)
-            merge_a = merge_a.drop(columns = [season, 'season'])
+            merge_a = merge_a.drop(columns = [season])
 
             # Filter the climate data of the first two months in the next year of the years in sample and get the sample id
            
             merge_b = data[data['year'].isin(years_plus)]
             merge_b = merge_b[(merge_b['month'] >= 1) & (merge_b['month'] <=2)]
             merge_b = pd.merge(merge_b, muestras_by_type[['index', 'plus']], left_on = 'year', right_on = 'plus')
-            merge_b = merge_b.drop(columns = ['plus', 'season'])
+            merge_b = merge_b.drop(columns = ['plus'])
 
             # Merge filtered data
             merge = pd.concat([merge_a, merge_b])
-  
             
 
           else:
             # If season is another, filter climate data of the years in sample and get the sample id
 
-            merge = data.loc[data['year'].isin(muestras_by_type[season])]
+            merge = data.loc[data['year'].isin(years)]
             merge = merge.loc[(merge['month'] >= x['Start'].iloc[0]) & (merge['month'] <= x['End'].iloc[0])]
             merge = pd.merge(merge,muestras_by_type[['index',season]],left_on = 'year', right_on = season)
-            merge = merge.drop(columns = [season, 'season'])
+            merge = merge.drop(columns = [season])
 
         # Join seasons samples by column by sample id
         base_years = pd.concat([base_years, muestras_by_type[['index',season]]], axis = 1,ignore_index=True)
 
         # Join climate data filtered for the seasons
         seasons_range = pd.concat([seasons_range, merge])
+     
         
 
       seasons_range = seasons_range.rename(columns = {'index': 'id'})
@@ -431,7 +437,6 @@ class Resampling():
 
             #Return climate data filtered with sample id
             return base_years, seasons_range, problem
-
 
 
   def save_forecast(self,station, output_root, year_forecast, seasons_range, base_years):
@@ -474,6 +479,8 @@ class Resampling():
       for i in base_years.index:
 
           df = seasons_range[(seasons_range['id'] == base_years['id'].iloc[i])]
+          print(i)
+          print(list(np.unique(df['month'])))
           a = 0
           for j, row in df.iterrows():
               # If forecast period is November-December-January or December-January-February, then the year of forecast is the next
