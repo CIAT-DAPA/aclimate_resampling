@@ -394,12 +394,27 @@ class CompleteData():
                 #df_tmp = df_tmp.loc[(df_tmp["year"] != self.start_date.year) &  (df_tmp["month"] != self.start_date.month),:]
                 # filtering data for this location
                 df_data = data.loc[data["ws"] == location["ws"],cols_total]
-                
-                # We validate if we have data or we should use the climatology
-                if df_data.shape[0] == 0:
-                    df_data = climatology.loc[climatology["ws"] == location["ws"],cols_total]
 
-                #
+                # We validate if we have data or we should use the climatology
+                nan_mask = df_data.isna().any(axis=1)
+                nan_rows = df_data[nan_mask]
+
+                for index, row in nan_rows.iterrows():
+                    day = row['day']
+                    month = row['month']
+                    year = row['year']
+
+                    # Search for the corresponding values in df2
+                    matching_row = climatology[(climatology['day'] == day) & (climatology['month'] == month) & (climatology['year'] == year)]
+
+                    if not matching_row.empty:
+                        for v in variables:
+                            # Update the NaN value in df1 with the corresponding value from df2
+                            df_data.at[index, v] = matching_row[v].values[0]
+
+                #if df_data.shape[0] == 0:
+                #    df_data = climatology.loc[climatology["ws"] == location["ws"],cols_total]
+
                 #df_data = df_data.append(df_tmp,ignore_index=True)
                 df_data = pd.concat([df_data,df_tmp], ignore_index=True)
                 df_data = df_data[cols_total]
