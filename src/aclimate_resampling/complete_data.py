@@ -466,13 +466,16 @@ class CompleteData():
 
         print("Listing stations")
         df_ws = self.list_ws()
+        df_ws_full = df_ws[df_ws['message'].isna()]
+        df_ws_nan = df_ws[~df_ws['message'].isna()]
         print("Listed stations")
         print("Adding data started!")
         pool = mp.Pool(processes=self.cores)
-        chunks = np.array_split(df_ws, self.cores)
+        chunks = np.array_split(df_ws_full, self.cores)
         chunk_processes = [pool.apply_async(self.run_chunk, args=(chunk,)) for chunk in chunks]
         for process in chunk_processes:
             process.get()
         print("Added data!")
-
+        
+        df_ws_nan.to_csv(os.path.join(self.path_country_outputs_forecast,"stations_without_coord.csv"),index=False)
         print("Process finished")
