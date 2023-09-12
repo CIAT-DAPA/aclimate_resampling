@@ -430,7 +430,6 @@ class Resampling():
             base_years = base_years.rename(columns={0: 'id',1: s[0]})
             base_years['id'] = base_years['id'] + 1
             seasons_range['id'] = seasons_range['id']+1
-            seasons_range = seasons_range.drop(columns= ['index'])
             p = {'id': [station],'issue': ['Station just have one season available'], 'season': [base_years.columns[1]]}
             problem = pd.DataFrame(p)
             base_years.to_csv(os.path.join(val_root, f"{station}_Escenario_A.csv"), index = False)
