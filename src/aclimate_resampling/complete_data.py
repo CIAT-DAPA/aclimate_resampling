@@ -301,10 +301,8 @@ class CompleteData():
     def filter_extract_data(self, data_frame):
         current_year = self.start_date.year
         current_month = self.start_date.month
-
-        filter_data_frame = data_frame.loc[
-                (data_frame["year"] <= current_year) & (data_frame["month"] <= current_month),
-                :]
+        
+        filter_data_frame = data_frame.loc[(data_frame["year"] <= current_year) & (data_frame["month"] <= current_month),:]
         return filter_data_frame
     
 
@@ -466,8 +464,10 @@ class CompleteData():
 
         print("Listing stations")
         df_ws = self.list_ws()
-        df_ws_full = df_ws[df_ws['message'].isna()]
-        df_ws_nan = df_ws[~df_ws['message'].isna()]
+        df_ws_full = df_ws.loc[df_ws['message'] == "",:]
+        df_ws_nan = df_ws.loc[df_ws['message'] != "",:]
+        df_ws_full.to_csv(os.path.join(self.path_country_outputs_forecast,"resampling_complete_data_stations_coord.csv"),index=False)
+        df_ws_nan.to_csv(os.path.join(self.path_country_outputs_forecast,"resampling_complete_data_stations_without_coord.csv"),index=False)
         print("Listed stations")
         print("Adding data started!")
         pool = mp.Pool(processes=self.cores)
@@ -477,5 +477,5 @@ class CompleteData():
             process.get()
         print("Added data!")
         
-        df_ws_nan.to_csv(os.path.join(self.path_country_outputs_forecast,"stations_without_coord.csv"),index=False)
+        
         print("Process finished")
