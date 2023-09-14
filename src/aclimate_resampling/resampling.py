@@ -455,7 +455,7 @@ class Resampling():
             seasons_range['id'] = seasons_range['id']+1
 
               
-            p = {'id': [station],'issue': ['Station does not have all the seasons availables'], 'Seasons available': ", ".join([str(item) for item in s])}
+            p = {'id': [station],'issue': ['Station does not have all the seasons available'], 'Seasons available': ", ".join([str(item) for item in s])}
             problem = pd.DataFrame(p)
             base_years.to_csv(os.path.join(val_root, f"{station}_Escenario_A.csv"), index = False)
 
