@@ -301,6 +301,11 @@ class CompleteData():
     def filter_extract_data(self, data_frame):
         current_year = self.start_date.year
         current_month = self.start_date.month
+
+        if "year" not in data_frame.columns:
+            raise ValueError("ERROR year column doesn't exists. Current columns: " + ', '.join(data_frame.columns))
+        if "month" not in data_frame.columns:
+            raise ValueError("ERROR month column doesn't exists. Current columns: " + ', '.join(data_frame.columns))
         
         filter_data_frame = data_frame.loc[(data_frame["year"] <= current_year) & (data_frame["month"] <= current_month),:]
         return filter_data_frame
