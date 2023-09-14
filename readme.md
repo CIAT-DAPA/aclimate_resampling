@@ -14,38 +14,16 @@ This repository contains all related to resampling module for AClimate
 ## Prerequisites
 
 - Python 3.x
-- GDAL
 - You need the .cdsapirc file which should be in $HOME if you are using linux or User Home if you use Windows
 
 ## Configure DEV Enviroment
 
-You should create a env to run the code and install the requeriments. 
-
-### Linux
-
-Run the following commands in the prompt
+You should create a env to run the code and install the requeriments. Run the following commands in the prompt
 
 ````bash
-sudo add-apt-repository -y ppa:ubuntugis/ppa
-sudo apt-get update -q
-sudo apt-get install -y libgdal-dev
-
 pip install virtualenv
 venv env
 pip install -r requirements.txt
-
-pip install GDAL==$(gdal-config --version) --global-option=build_ext --global-option="-I/usr/include/gdal"
-````
-
-### Windows
-
-You have to edit the **requirements_windows.txt** file. Change the path of the wheels for 
-**GDAL** and **rasterio** package for the path of the files in **modules**. It should be absolute path.
-
-````bash
-pip install virtualenv
-venv env
-pip install -r requirements_windows.txt
 ````
 
 ## Run Test
