@@ -408,7 +408,7 @@ class Resampling():
 
       seasons_range = seasons_range.rename(columns = {'index': 'id'})
 
-      if len(list(np.unique(cpt_prob['season']))) ==2:
+      if (forecast_period == 'tri') and (len(list(np.unique(cpt_prob['season']))) == 2):
 
             s = list(np.unique(cpt_prob['season']))
             base_years = base_years.iloc[:,[0,1,3] ]
@@ -423,20 +423,44 @@ class Resampling():
             return base_years, seasons_range
 
       else:
-            print('Station just have one season available')
-            base_years = base_years.iloc[:,[0,1] ]
+          if (forecast_period == 'bi') and (len(list(np.unique(cpt_prob['season']))) == 3) :  
+          
             s = list(np.unique(cpt_prob['season']))
-            base_years = base_years.iloc[:,[0,1] ]
-            base_years = base_years.rename(columns={0: 'id',1: s[0]})
+            base_years = base_years.iloc[:,[0,1,3,5] ]
+            base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1], 5: s[2]})
             base_years['id'] = base_years['id'] + 1
             seasons_range['id'] = seasons_range['id']+1
-            p = {'id': [station],'issue': ['Station just have one season available'], 'season': [base_years.columns[1]]}
+            seasons_range = seasons_range.sort_values(by=['year', 'month'], ascending=True)
+            base_years.to_csv(os.path.join(val_root,  f"{station}_Escenario_A.csv"), index = False)
+
+
+            #Return climate data filtered with sample id
+            return base_years, seasons_range
+
+          else:
+
+            print('Station does not have all the seasons availables')
+            
+            s = list(np.unique(cpt_prob['season']))
+            if len(base_years.columns) == 2:
+              base_years = base_years.iloc[:,[0,1] ]
+              base_years = base_years.rename(columns={0: 'id',1: s[0]})
+            else:
+              if len(base_years.columns == 4):
+                base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1]})
+              else:
+                base_years = base_years.rename(columns={0: 'id',1: s[0]})
+
+            base_years['id'] = base_years['id'] + 1
+            seasons_range['id'] = seasons_range['id']+1
+
+              
+            p = {'id': [station],'issue': ['Station does not have all the seasons available'], 'Seasons available': ", ".join([str(item) for item in s])}
             problem = pd.DataFrame(p)
             base_years.to_csv(os.path.join(val_root, f"{station}_Escenario_A.csv"), index = False)
 
             #Return climate data filtered with sample id
             return base_years, seasons_range, problem
-
 
   def save_forecast(self,station, output_root, year_forecast, seasons_range, base_years):
 
