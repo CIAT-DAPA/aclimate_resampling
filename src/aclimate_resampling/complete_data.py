@@ -421,7 +421,7 @@ class CompleteData():
                 df_data = df_data[cols_total]
                 df_data = df_data.sort_values(by=['year','month','day'])
                 # It removes old records that are duplicated
-                df_data = df_data.drop_duplicates(subset='A', keep='first')
+                df_data = df_data.drop_duplicates(subset=['year','month','day'], keep='first')
 
                 df_data.to_csv(f,index=False)
 
