@@ -389,11 +389,9 @@ class CompleteData():
                 # Preparing original files
                 df_tmp = pd.read_csv(f)
                 # Remove records old
-                current_year = self.start_date.year
-                current_month = self.start_date.month
-                df_tmp = df_tmp.loc[
-                ((df_tmp["year"] > current_year) | (df_tmp["month"] > current_month)),
-                :]
+                #current_year = self.start_date.year
+                #current_month = self.start_date.month
+                #df_tmp = df_tmp.loc[((df_tmp["year"] > current_year) | (df_tmp["month"] > current_month)),:]
                 #df_tmp = df_tmp.loc[(df_tmp["year"] != self.start_date.year) &  (df_tmp["month"] != self.start_date.month),:]
                 # filtering data for this location
                 df_data = data.loc[data["ws"] == location["ws"],cols_total]
@@ -422,6 +420,9 @@ class CompleteData():
                 df_data = pd.concat([df_data,df_tmp], ignore_index=True)
                 df_data = df_data[cols_total]
                 df_data = df_data.sort_values(by=['year','month','day'])
+                # It removes old records that are duplicated
+                df_data = df_data.drop_duplicates(subset='A', keep='first')
+
                 df_data.to_csv(f,index=False)
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
