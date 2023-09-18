@@ -490,30 +490,32 @@ class Resampling():
     # Set the output root based on forecast period
       output_estacion = os.path.join(output_root, station)
       if not os.path.exists(output_estacion):
-          os.mkdir(output_estacion)       
+          os.mkdir(output_estacion)
           print("Path created for the station: {}".format(station))
-          
+
       output_summary = os.path.join(output_root, "summary")
       if not os.path.exists(output_summary):
-          os.mkdir(output_summary)       
+          os.mkdir(output_summary)
 
       # Filter climate data by escenry id and save
       escenarios = []
-      for i in base_years.index:
+      IDs= list(np.unique(seasons_range['id']))
+      for i in range(len(IDs)):
 
-          df = seasons_range[(seasons_range['id'] == base_years['id'].iloc[i])]
-          print(i)
-          print(list(np.unique(df['month'])))
-          a = 0
-          for j, row in df.iterrows():
-              # If forecast period is November-December-January or December-January-February, then the year of forecast is the next
-              if ((row['month'] == 1) and ((row['season'] == 'Nov-Dec-Jan') or (row['season'] == 'Dec-Jan-Feb'))) or ((row['month'] == 2) and (row['season'] == 'Dec-Jan-Feb')):
-                  a = year_forecast + 1
-              else:
-                  a = year_forecast
-              df.at[j, 'year'] = a
+ #         print(IDs[i])
+          df = seasons_range[(seasons_range['id'] == IDs[i])]
+          df = df.reset_index()
+          df = df.drop(columns = ['year'])
+          for j in list(range(len(df))):
 
-          df = df.drop(['id', 'season'], axis = 1)
+              df.loc[j, 'year'] = year_forecast
+              if (df.loc[j, 'month'] == 1) and ((df.loc[j, 'season']  == 'Nov-Dec-Jan') or (df.loc[j, 'season']  == 'Dec-Jan-Feb') or (df.loc[j, 'season']  == 'Jan-Feb')):
+                  df.loc[j, 'year'] = year_forecast + 1
+              elif (df.loc[j, 'month']  == 2) and ((df.loc[j, 'season']  == 'Dec-Jan-Feb') or (df.loc[j, 'season']  == 'Jan-Feb')):
+                  df.loc[j, 'year'] = year_forecast + 1
+
+          df = df.drop(['index','id', 'season'], axis = 1)
+
           escenarios.append(df)
           df.to_csv(os.path.join(output_estacion ,f"{station}_escenario_{str(i+1)}.csv"), index=False)
 
@@ -521,19 +523,27 @@ class Resampling():
 
       # Calculate maximum and minimum of escenaries by date and save
       df = pd.concat(escenarios)
-      df.groupby(['day', 'month']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_max.csv"), index=False)
-      df.groupby(['day', 'month']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_min.csv"), index=False)
+      
+      #df.groupby(['year', 'month', 'day']).max().reset_index().to_csv(os.path.join(output_summary, f"{station}_ejemplo.csv"))
+
+      
+      df.groupby(['year', 'month', 'day']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_max.csv"), index=False)
+      df.groupby(['year', 'month', 'day']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_min.csv"), index=False)
       print("Minimum and Maximum of escenaries saved in {}".format(output_summary))
 
-      vars = df.columns[3:]
+      vars = df.columns
+      vars = [item for item in vars if item != "year"]
+      vars = [item for item in vars if item != "month"]
+      vars = [item for item in vars if item != "day"]
 
       for i in range(len(vars)):
-         df.groupby(['month', 'year'])[vars[i]].max().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_max.csv"), index=False)
-         df.groupby(['month', 'year'])[vars[i]].min().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_min.csv"), index=False)
-         df.groupby(['month', 'year'])[vars[i]].mean().reset_index().sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_avg.csv"), index=False)
+         df.groupby(['year', 'month'])[vars[i]].max().reset_index().rename(columns = {vars[i]: 'max'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_max.csv"), index=False)
+         df.groupby(['year', 'month'])[vars[i]].min().reset_index().rename(columns = {vars[i]: 'min'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_min.csv"), index=False)
+         df.groupby(['year', 'month'])[vars[i]].mean().reset_index().rename(columns = {vars[i]: 'mean'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_avg.csv"), index=False)
 
-           
+
       print("Minimum, Maximum and Average of variables by escenary is saved in {}".format(output_summary))
+      return df
 
 
     else:
