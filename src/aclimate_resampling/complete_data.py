@@ -202,7 +202,7 @@ class CompleteData():
             self.manager.mkdir(save_path_era5_data_tmp)
 
             if self.force or os.path.exists(save_path_era5) == False:
-                c = cdsapi.Client()
+                c = cdsapi.Client(timeout=600,quiet=False,verify=False)
                 c.retrieve('sis-agrometeorological-indicators',
                     {
                         'format': 'zip',
