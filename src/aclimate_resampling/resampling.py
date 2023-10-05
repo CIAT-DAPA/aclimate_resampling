@@ -500,19 +500,26 @@ class Resampling():
       # Filter climate data by escenry id and save
       escenarios = []
       IDs= list(np.unique(seasons_range['id']))
+      seasons =  list(np.unique(seasons_range['season']))
+      
       for i in range(len(IDs)):
 
  #         print(IDs[i])
           df = seasons_range[(seasons_range['id'] == IDs[i])]
+
           df = df.reset_index()
           df = df.drop(columns = ['year'])
           for j in list(range(len(df))):
 
               df.loc[j, 'year'] = year_forecast
-              if (df.loc[j, 'month'] == 1) and ((df.loc[j, 'season']  == 'Nov-Dec-Jan') or (df.loc[j, 'season']  == 'Dec-Jan-Feb') or (df.loc[j, 'season']  == 'Jan-Feb')):
+              if (df.loc[j, 'month'] == 1) and ((df.loc[j, 'season']  == 'Nov-Dec-Jan') or (df.loc[j, 'season']  == 'Dec-Jan-Feb')):
                   df.loc[j, 'year'] = year_forecast + 1
-              elif (df.loc[j, 'month']  == 2) and ((df.loc[j, 'season']  == 'Dec-Jan-Feb') or (df.loc[j, 'season']  == 'Jan-Feb')):
+              elif (df.loc[j, 'month']  == 2) and ((df.loc[j, 'season']  == 'Dec-Jan-Feb')):
                   df.loc[j, 'year'] = year_forecast + 1
+              if (df.loc[j, 'season'] == "Jan-Feb-Mar") and ("Oct-Nov-Dec" in seasons):
+                 df.loc[j, 'year'] = year_forecast + 1
+              elif ((df.loc[j, 'season'] == "Jan-Feb") or (df.loc[j, 'season'] == "Feb-Mar") or (df.loc[j, 'season'] == "Mar-Apr")) and ("Nov-Dec" in seasons):
+                 df.loc[j, 'year'] = year_forecast + 1
 
           df = df.drop(['index','id', 'season'], axis = 1)
 
