@@ -530,11 +530,11 @@ class Resampling():
 
       # Calculate maximum and minimum of escenaries by date and save
       df = pd.concat(escenarios)
-      df['year'] = df['year'].astype('int')
       columns = list(df.columns)
       columns.remove('year')
       new_columns = columns[:2] + ['year'] + columns[2:]
       df = df[new_columns]
+      df['year'] = df['year'].astype('int')
       
       #df.groupby(['year', 'month', 'day']).max().reset_index().to_csv(os.path.join(output_summary, f"{station}_ejemplo.csv"))
 
