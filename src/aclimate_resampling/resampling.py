@@ -522,6 +522,7 @@ class Resampling():
                  df.loc[j, 'year'] = year_forecast + 1
 
           df = df.drop(['index','id', 'season'], axis = 1)
+          df['year'] = df['year'].astype('int')
 
           escenarios.append(df)
           df.to_csv(os.path.join(output_estacion ,f"{station}_escenario_{str(i+1)}.csv"), index=False)
@@ -535,7 +536,7 @@ class Resampling():
       new_columns = columns[:2] + ['year'] + columns[2:]
       df = df[new_columns]
       df['year'] = df['year'].astype('int')
-      
+
       #df.groupby(['year', 'month', 'day']).max().reset_index().to_csv(os.path.join(output_summary, f"{station}_ejemplo.csv"))
 
       
