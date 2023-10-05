@@ -501,6 +501,7 @@ class Resampling():
       escenarios = []
       IDs= list(np.unique(seasons_range['id']))
       seasons =  list(np.unique(seasons_range['season']))
+      year_forecast = int(year_forecast)
       
       for i in range(len(IDs)):
 
