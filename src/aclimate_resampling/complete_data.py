@@ -45,6 +45,7 @@ class CompleteData():
         self.path_country_outputs = ""
         self.path_country_outputs_forecast = ""
         self.path_country_outputs_forecast_resampling = ""
+        self.cdsapi_version = ""
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to prepare and validate the enviroment
@@ -52,7 +53,7 @@ class CompleteData():
     def prepare_env(self):
         # Creating paths
         self.path_country = os.path.join(self.path,self.country)
-
+        self.cdsapi_version = "1_1"
         self.path_country_inputs = os.path.join(self.path_country,"inputs")
         self.path_country_inputs_forecast = os.path.join(self.path_country_inputs,"prediccionClimatica")
         self.path_country_inputs_forecast_dailydata = os.path.join(self.path_country_inputs_forecast,"dailyData")
@@ -210,6 +211,7 @@ class CompleteData():
                         'year': year,
                         'month': month,
                         'day': days,
+                        'version': self.cdsapi_version,
                     },
                     save_path_era5
                 )
