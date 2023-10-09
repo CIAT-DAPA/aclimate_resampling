@@ -499,7 +499,6 @@ class Resampling():
       if not os.path.exists(output_summary):
           os.mkdir(output_summary)
 
-      # Filter climate data by escenry id and save
       escenarios = []
       IDs= list(np.unique(seasons_range['id']))
       seasons =  list(np.unique(seasons_range['season']))
