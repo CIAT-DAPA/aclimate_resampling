@@ -112,7 +112,7 @@ class Resampling():
   def preprocessing(self,prob_root,  ids):
 
     """ Determine seasons of analysis according to the month of forecast in CPT
-    
+
     Args:
 
     prob_root: str
@@ -120,19 +120,19 @@ class Resampling():
 
 
     ids: dict
-              Dictionary with a list of stations with problems and not to be analyzed, and 
+              Dictionary with a list of stations with problems and not to be analyzed, and
               a list of stations without problems.
 
     Returns:
 
       Dataframe
-          a dataframe with the original columns + name of season + start month of season + 
+          a dataframe with the original columns + name of season + start month of season +
           end month of season
 
     """
 
 
-    # Read the CPT probabilities file 
+    # Read the CPT probabilities file
 
     proba = pd.read_csv(os.path.join(prob_root , "probabilities.csv"))
 
@@ -163,12 +163,12 @@ class Resampling():
         months_numbers = list(range(1,13))
         months_numbers.append(1)
 
-        
+
         # Create a DataFrame representing periods of two consecutive months (with its numbers)
         period = pd.DataFrame( [months_numbers[i:i+2] for i in range(0, len(months_numbers)-1)])
         period.columns = ['Start', 'End']
 
-     
+
         # Merge the prob DataFrame with the period DataFrame based on the 'month' and 'Start' month columns
         prob = prob.merge(period, left_on='month', right_on='Start')
 
@@ -179,7 +179,7 @@ class Resampling():
 
     # Reshape the 'prob' DataFrame and put the 'below', 'normal' and 'above' probability categories in a column
     prob = prob.melt(id_vars = ['year', 'id', 'predictand','season', 'Start','End'], var_name = 'Type', value_name = 'Prob')
-    
+
     #Return probability DataFrame
     return prob, forecast_period
 
@@ -464,30 +464,9 @@ class Resampling():
             #Return climate data filtered with sample id
             return base_years, seasons_range, problem
 
-  def save_forecast(self,station, output_root, year_forecast, seasons_range, base_years):
+  def save_forecast(self, station, output_root, year_forecast, seasons_range, base_years):
 
 
-    """ Save the climate daily data by escenary and a summary of the escenary
-    
-    Args:
-
-      station: str
-              Station id to be analized
-      output_root: str
-              Where outputs are going to be saved.
-      year_forecast: int
-              Year to forecast
-
-      seasons_range: DataFrame
-              The result of forecast_station function
-
-      base_years: DataFrame 
-              The result of forecast_station function
-
-    
-    Returns:
-          None
-    """
     if isinstance(base_years, pd.DataFrame):
     # Set the output root based on forecast period
       output_estacion = os.path.join(output_root, station)
@@ -542,13 +521,9 @@ class Resampling():
       df = df[new_columns]
       
 
-      #df.groupby(['year', 'month', 'day']).max().reset_index().to_csv(os.path.join(output_summary, f"{station}_ejemplo.csv"))
-
-      
       df.groupby(['year', 'month', 'day']).max().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_max.csv"), index=False)
       df.groupby(['year', 'month', 'day']).min().reset_index().sort_values(['month', 'day'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_escenario_min.csv"), index=False)
       print("Minimum and Maximum of escenaries saved in {}".format(output_summary))
-
 
       vars = df.columns
       vars = [item for item in vars if item != "year"]
@@ -556,9 +531,11 @@ class Resampling():
       vars = [item for item in vars if item != "day"]
 
       for i in range(len(vars)):
+         print(df.groupby(['year', 'month'])[vars[i]].mean().reset_index().rename(columns = {vars[i]: 'avg'}).sort_values(['year', 'month'], ascending = True))
+
          df.groupby(['year', 'month'])[vars[i]].max().reset_index().rename(columns = {vars[i]: 'max'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_max.csv"), index=False)
          df.groupby(['year', 'month'])[vars[i]].min().reset_index().rename(columns = {vars[i]: 'min'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_min.csv"), index=False)
-         df.groupby(['year', 'month'])[vars[i]].mean().reset_index().rename(columns = {vars[i]: 'mean'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_avg.csv"), index=False)
+         df.groupby(['year', 'month'])[vars[i]].mean().reset_index().rename(columns = {vars[i]: 'avg'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_avg.csv"), index=False)
 
 
       print("Minimum, Maximum and Average of variables by escenary is saved in {}".format(output_summary))
