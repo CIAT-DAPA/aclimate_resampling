@@ -161,6 +161,8 @@ class Resampling():
 
         # Create a list of month numbers from 1 to 12
         months_numbers = list(range(1,13))
+        months_numbers.append(1)
+
         
         # Create a DataFrame representing periods of two consecutive months (with its numbers)
         period = pd.DataFrame( [months_numbers[i:i+2] for i in range(0, len(months_numbers)-1)])
