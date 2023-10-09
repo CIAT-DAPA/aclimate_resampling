@@ -161,6 +161,8 @@ class Resampling():
 
         # Create a list of month numbers from 1 to 12
         months_numbers = list(range(1,13))
+        months_numbers.append(1)
+
         
         # Create a DataFrame representing periods of two consecutive months (with its numbers)
         period = pd.DataFrame( [months_numbers[i:i+2] for i in range(0, len(months_numbers)-1)])
@@ -513,10 +515,13 @@ class Resampling():
           for j in list(range(len(df))):
 
               df.loc[j, 'year'] = year_forecast
-              if (df.loc[j, 'month'] == 1) and ((df.loc[j, 'season']  == 'Nov-Dec-Jan') or (df.loc[j, 'season']  == 'Dec-Jan-Feb')):
+              if (df.loc[j, 'month'] == 1) and ((df.loc[j, 'season']  == 'Nov-Dec-Jan') or (df.loc[j, 'season']  == 'Dec-Jan-Feb') or  (df.loc[j, 'season']  == 'Dec-Jan')):
                   df.loc[j, 'year'] = year_forecast + 1
-              elif (df.loc[j, 'month']  == 2) and ((df.loc[j, 'season']  == 'Dec-Jan-Feb')):
+              elif (df.loc[j, 'month']  == 2) and ((df.loc[j, 'season']  == 'Dec-Jan-Feb') or (df.loc[j, 'season']  == 'Jan-Feb') or (df.loc[j, 'season']  == 'Feb-Mar')):
                   df.loc[j, 'year'] = year_forecast + 1
+              elif (df.loc[j, 'month']  == 3) and ((df.loc[j, 'season']  == 'Feb-Mar') or (df.loc[j, 'season']  == 'Mar-Apr')):
+                  df.loc[j, 'year'] = year_forecast + 1
+
               if (df.loc[j, 'season'] == "Jan-Feb-Mar") and ("Oct-Nov-Dec" in seasons):
                  df.loc[j, 'year'] = year_forecast + 1
               elif ((df.loc[j, 'season'] == "Jan-Feb") or (df.loc[j, 'season'] == "Feb-Mar") or (df.loc[j, 'season'] == "Mar-Apr")) and ("Nov-Dec" in seasons):
@@ -536,7 +541,7 @@ class Resampling():
       columns.remove('year')
       new_columns = columns[:2] + ['year'] + columns[2:]
       df = df[new_columns]
-      df['year'] = df['year'].astype('int')
+      
 
       #df.groupby(['year', 'month', 'day']).max().reset_index().to_csv(os.path.join(output_summary, f"{station}_ejemplo.csv"))
 
