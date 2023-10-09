@@ -8,6 +8,8 @@ import numpy as np
 import os
 import warnings
 import dask.dataframe as dd
+from datetime import datetime
+
 
 warnings.filterwarnings("ignore")
 
@@ -491,6 +493,18 @@ class Resampling():
             #Return climate data filtered with sample id
             return base_years, seasons_range, problem
 
+
+  def add_year(self, year_forecast, m):
+  
+    if m < datetime.today().month:
+     a = year_forecast + 1
+    else:
+      a = year_forecast
+
+    return a
+
+
+
   def save_forecast(self, station, output_root, year_forecast, seasons_range, base_years):
 
 
@@ -511,26 +525,10 @@ class Resampling():
       year_forecast = int(year_forecast)
       
       for i in range(len(IDs)):
+          
+          df.loc[j, 'year'] = self.add_year(year_forecast, df.loc[j, 'month'])
 
- #         print(IDs[i])
-          df = seasons_range[(seasons_range['id'] == IDs[i])]
-
-          df = df.reset_index()
-          df = df.drop(columns = ['year'])
-          for j in list(range(len(df))):
-
-              df.loc[j, 'year'] = year_forecast
-              if (df.loc[j, 'month'] == 1) and ((df.loc[j, 'season']  == 'Nov-Dec-Jan') or (df.loc[j, 'season']  == 'Dec-Jan-Feb') or  (df.loc[j, 'season']  == 'Dec-Jan')):
-                  df.loc[j, 'year'] = year_forecast + 1
-              elif (df.loc[j, 'month']  == 2) and ((df.loc[j, 'season']  == 'Dec-Jan-Feb') or (df.loc[j, 'season']  == 'Jan-Feb') or (df.loc[j, 'season']  == 'Feb-Mar')):
-                  df.loc[j, 'year'] = year_forecast + 1
-              elif (df.loc[j, 'month']  == 3) and ((df.loc[j, 'season']  == 'Feb-Mar') or (df.loc[j, 'season']  == 'Mar-Apr')):
-                  df.loc[j, 'year'] = year_forecast + 1
-
-              if (df.loc[j, 'season'] == "Jan-Feb-Mar") and ("Oct-Nov-Dec" in seasons):
-                 df.loc[j, 'year'] = year_forecast + 1
-              elif ((df.loc[j, 'season'] == "Jan-Feb") or (df.loc[j, 'season'] == "Feb-Mar") or (df.loc[j, 'season'] == "Mar-Apr")) and ("Nov-Dec" in seasons):
-                 df.loc[j, 'year'] = year_forecast + 1
+ #
 
           df = df.drop(['index','id', 'season'], axis = 1)
           df['year'] = df['year'].astype('int')
