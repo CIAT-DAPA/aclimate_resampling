@@ -339,6 +339,7 @@ class Resampling():
 
         if season == 'Nov-Dec-Jan':
           # If season is November-December-January
+          ##
 
           # Calculate the next year of the year sample and assign the same sample id
           muestras_by_type['plus'] = list(map(lambda x: x + 1, muestras_by_type[season]))
