@@ -525,8 +525,15 @@ class Resampling():
       year_forecast = int(year_forecast)
       
       for i in range(len(IDs)):
+           #         print(IDs[i])
+          df = seasons_range[(seasons_range['id'] == IDs[i])]
+
+          df = df.reset_index()
+          df = df.drop(columns = ['year'])
+
+          for j in list(range(len(df))):
           
-          df.loc[j, 'year'] = self.add_year(year_forecast, df.loc[j, 'month'])
+              df.loc[j, 'year'] = self.add_year(year_forecast, df.loc[j, 'month'])
 
  #
 
