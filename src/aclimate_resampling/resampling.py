@@ -321,38 +321,42 @@ class Resampling():
 
       # Start the resampling process for every season of analysis in CPT probabilities file
 
-      base_years =  pd.DataFrame() # List to store years of sample for each season
-      seasons_range = pd.DataFrame() # List to store climate data in the years of sample for each season
+      # Create empty DataFrames to store the results
+      base_years = pd.DataFrame()
+      seasons_range = pd.DataFrame()
 
-      for season in  list(np.unique(cpt_prob['season'])):
+    # Iterate over seasons
+      for season in season:
+        print(season)
 
         # Select the probabilities for the season
         x = cpt_prob[cpt_prob['season'] == season]
 
-
         predictand = cpt_prob['predictand'].iloc[0]
 
-
-      # Compute total precipitation for each year in the climate data range selected
-        new_data = data[['year',predictand]].groupby(['year']).sum().reset_index()
-
+        # Compute total precipitation for each year in the climate data range selected
+        new_data = data[['year', predictand]].groupby(['year']).sum().reset_index()
         data['season'] = season
 
+        # Calculate quantiles to determine precipitation conditions for every year in climate data selected
+        cuantiles = list(np.quantile(new_data['prec'], [0.33, 0.66]))
+        new_data['condition'] = 'NA'
+        new_data.loc[new_data[predictand] <= cuantiles[0], 'condition'] = 'below'
+        new_data.loc[new_data[predictand] >= cuantiles[1], 'condition'] = 'above'
+        new_data.loc[
+            (new_data[predictand] > cuantiles[0]) & (new_data[predictand] < cuantiles[1]),
+            'condition'
+        ] = 'normal'
 
-      # Calculate quantiles to determine precipitation conditions for every year in climate data selected
-        cuantiles = list(np.quantile(new_data['prec'], [.33,.66]))
-        new_data['condition'] =  'NA'
-        new_data.loc[new_data[predictand]<= cuantiles[0], 'condition'] = 'below'
-        new_data.loc[new_data[predictand]>= cuantiles[1], 'condition'] =  'above'
-        new_data.loc[(new_data[predictand]> cuantiles[0]) & (new_data[predictand]< cuantiles[1]), 'condition'] =  'normal'
+        # Sample 100 records in probability file of season based on probability from CPT as weights
+        muestras = x[['Start', 'End', 'Type', 'Prob']].sample(100, replace=True, weights=x['Prob'])
+        muestras = muestras.set_index(pd.Index(list(range(0, 100))))
 
-      # Sample 100 records in probability file of season based on probability from CPT as weights
-        muestras = x[['Start', 'End', 'Type', 'Prob']].sample(100, replace = True, weights=x['Prob'])
-        muestras = muestras.set_index(pd.Index(list(range(0,100))))
+       
 
         muestras_by_type = []
         for i in range(len(muestras)):
-              m = self.gen_muestras(new_data, muestras.iloc[i]['Type'])
+              m = gen_muestras(new_data, muestras.iloc[i]['Type'])
               muestras_by_type.append(m)           
 
 
@@ -367,73 +371,73 @@ class Resampling():
         years = list(muestras_by_type[season])
 
         p = pd.DataFrame()
-        for x in range(len(years)):
-            p1 = self.process_escenario(data=data, season=season, month_start= x['Start'].iloc[0], month_end = x['End'].iloc[0],year=years[j], index=muestras_by_type.iloc[j]['index'])
+        for j in range(len(years)):
+            p1 = process_escenario(data=data, season=season, month_start= x['Start'].iloc[0], month_end = x['End'].iloc[0],year=years[j], index=muestras_by_type.iloc[j]['index'])
             p = pd.concat([p, p1], ignore_index=True)
-
         # Join seasons samples by column by sample id
-        base_years = pd.concat([base_years, muestras_by_type[['index',season]]], axis = 1,ignore_index=True)
+        base_years = pd.concat([base_years, muestras_by_type[['index', season]]], axis=1, ignore_index=True)
 
         # Join climate data filtered for the seasons
-        seasons_range = pd.concat([seasons_range, p])
-
+        seasons_range = pd.concat([seasons_range, p], ignore_index=True)
+          
 
       seasons_range = seasons_range.rename(columns = {'index': 'id'})
 
       if (forecast_period == 'tri') and (len(list(np.unique(cpt_prob['season']))) == 2):
 
-            s = list(np.unique(cpt_prob['season']))
-            base_years = base_years.iloc[:,[0,1,3] ]
-            base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1]})
-            base_years['id'] = base_years['id'] + 1
-            seasons_range['id'] = seasons_range['id']+1
-            seasons_range = seasons_range.sort_values(by=['year', 'month'], ascending=True)
-            base_years.to_csv(os.path.join(val_root,  f"{station}_Escenario_A.csv"), index = False)
+              s = list(np.unique(cpt_prob['season']))
+              base_years = base_years.iloc[:,[0,1,3] ]
+              base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1]})
+              base_years['id'] = base_years['id'] + 1
+              seasons_range['id'] = seasons_range['id']+1
+              seasons_range = seasons_range.sort_values(by=['year', 'month'], ascending=True)
+              base_years.to_csv(os.path.join(val_root,  f"{station}_Escenario_A.csv"), index = False)
 
 
-            #Return climate data filtered with sample id
-            return base_years, seasons_range
+              #Return climate data filtered with sample id
+              return base_years, seasons_range
 
       else:
-          if (forecast_period == 'bi') and (len(list(np.unique(cpt_prob['season']))) == 3) :
+            if (forecast_period == 'bi') and (len(list(np.unique(cpt_prob['season']))) == 3) :
 
-            s = list(np.unique(cpt_prob['season']))
-            base_years = base_years.iloc[:,[0,1,3,5] ]
-            base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1], 5: s[2]})
-            base_years['id'] = base_years['id'] + 1
-            seasons_range['id'] = seasons_range['id']+1
-            seasons_range = seasons_range.sort_values(by=['year', 'month'], ascending=True)
-            base_years.to_csv(os.path.join(val_root,  f"{station}_Escenario_A.csv"), index = False)
+              s = list(np.unique(cpt_prob['season']))
+              base_years = base_years.iloc[:,[0,1,3,5] ]
+              base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1], 5: s[2]})
+              base_years['id'] = base_years['id'] + 1
+              seasons_range['id'] = seasons_range['id']+1
+              seasons_range = seasons_range.sort_values(by=['year', 'month'], ascending=True)
+              base_years.to_csv(os.path.join(val_root,  f"{station}_Escenario_A.csv"), index = False)
 
 
-            #Return climate data filtered with sample id
-            return base_years, seasons_range
+              #Return climate data filtered with sample id
+              return base_years, seasons_range
 
-          else:
-
-            print('Station does not have all the seasons availables')
-
-            s = list(np.unique(cpt_prob['season']))
-            if len(base_years.columns) == 2:
-              base_years = base_years.iloc[:,[0,1] ]
-              base_years = base_years.rename(columns={0: 'id',1: s[0]})
             else:
-              if len(base_years.columns == 4):
-                base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1]})
-              else:
+
+              print('Station does not have all the seasons availables')
+
+              s = list(np.unique(cpt_prob['season']))
+              if len(base_years.columns) == 2:
+                base_years = base_years.iloc[:,[0,1] ]
                 base_years = base_years.rename(columns={0: 'id',1: s[0]})
+              else:
+                if len(base_years.columns == 4):
+                  base_years = base_years.rename(columns={0: 'id',1: s[0], 3: s[1]})
+                else:
+                  base_years = base_years.rename(columns={0: 'id',1: s[0]})
 
-            base_years['id'] = base_years['id'] + 1
-            seasons_range['id'] = seasons_range['id']+1
+              base_years['id'] = base_years['id'] + 1
+              seasons_range['id'] = seasons_range['id']+1
 
 
-            p = {'id': [station],'issue': ['Station does not have all the seasons availables'], 'Seasons available': ", ".join([str(item) for item in s])}
-            problem = pd.DataFrame(p)
-            print(problem)
-            base_years.to_csv(os.path.join(val_root, f"{station}_Escenario_A.csv"), index = False)
+              p = {'id': [station],'issue': ['Station does not have all the seasons availables'], 'Seasons available': ", ".join([str(item) for item in s])}
+              problem = pd.DataFrame(p)
+              print(problem)
+              base_years.to_csv(os.path.join(val_root, f"{station}_Escenario_A.csv"), index = False)
 
-            #Return climate data filtered with sample id
-            return base_years, seasons_range, problem
+              #Return climate data filtered with sample id
+              return base_years, seasons_range, problem
+            
 
 
   def add_year(self, year_forecast, observed_month, current_month):
