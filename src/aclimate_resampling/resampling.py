@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore")
 
 class Resampling():
 
-  def __init__(self,path,country, year_forecast):
+  def __init__(self,path,country, year_forecast, current_month):
      self.path = path
      self.country = country
      self.path_inputs = os.path.join(self.path,self.country,"inputs")
@@ -27,6 +27,7 @@ class Resampling():
      self.path_outputs_prob = os.path.join(self.path_outputs_pred,"probForecast")
 
      self.year_forecast = year_forecast
+     self.current_month = current_month
      self.npartitions = 10 #int(round(cores/3)) 
 
      pass
@@ -184,8 +185,43 @@ class Resampling():
 
     #Return probability DataFrame
     return prob, forecast_period
+  
 
+  def gen_muestras(self, new_data, prob_type):
+    
+         
+    subset = new_data.loc[new_data['condition'] == prob_type]
+    m = subset.sample(1)
 
+    if any(m['year'] == max(new_data['year'])):
+      m = subset[subset['year'] != max(new_data['year'])].sample(1)
+    else:
+       m = m
+    
+    return m['year']
+  
+
+  def process_escenario(self, data, season, year,index):
+
+      if season == 'Nov-Dec-Jan':
+              m1 = data[(data['month'].isin([11,12])) & (data['year']== year)]
+              m2 = pd.concat([m1, data[(data['month'] == 1) & (data['year'] == year+1)]])
+              m2['index'] = index
+      else:
+              if season == 'Dec-Jan-Feb':
+                m1 = data[(data['month'] == 12) & (data['year'] == year)]
+                m2 = pd.concat([m1,data[(data['month'].isin([1,2])) & (data['year'] == year+1)]])
+                m2['index'] = index
+                
+              else:
+                    if season == 'Dec-Jan':
+                        m1 = data[(data['month'] == 12) & (data['year'] == year)]
+                        m2 = pd.concat([m1,data[(data['month'] == 1) & (data['year'] == year + 1)]])
+                        m2.loc['index'] = index
+                    else:
+                        m2 = data[data['year'] == year]
+                        m2['index'] = index
+      return m2
 
   def forecast_station(self, station, prob, daily_data_root, output_root, year_forecast, forecast_period):
     
@@ -312,128 +348,32 @@ class Resampling():
         muestras = x[['Start', 'End', 'Type', 'Prob']].sample(100, replace = True, weights=x['Prob'])
         muestras = muestras.set_index(pd.Index(list(range(0,100))))
 
-      # Randomly get one year from the total precipitation data based on precipitation conditions selected in the 100 data sample.
         muestras_by_type = []
-        for i in muestras.index:
-          m = new_data.loc[new_data['condition'] == muestras['Type'].iloc[i]].sample(1)
+        for i in range(len(muestras)):
+              m = self.gen_muestras(new_data, muestras.iloc[i]['Type'])
+              muestras_by_type.append(m)           
 
-          if any(m['year'] == max(new_data['year'])):
-            b = new_data.loc[new_data['condition'] == muestras['Type'].iloc[i]]
-            m = b[b['year'] != max(new_data['year'])].sample(1)
-          else:
-            m = m
-
-          muestras_by_type.append(m)
 
         # Join the 100 samples and add sample id
         muestras_by_type = pd.concat(muestras_by_type).reset_index()
         muestras_by_type['index'] = muestras.index
-        #muestras_by_type = muestras_by_type.set_index(pd.Index(list(range(0,100))))
-
 
         # Rename year column with season name
-        muestras_by_type = muestras_by_type.rename(columns = {'year':season})
+        muestras_by_type = muestras_by_type.rename(columns={'year': season})
 
-        #Set the sample years as list and sort
+        # Set the sample years as a list and sort
         years = list(muestras_by_type[season])
-        years.sort()
 
-
-        if season == 'Nov-Dec-Jan':
-          # If season is November-December-January
-
-          # Calculate the next year of the year sample and assign the same sample id
-          muestras_by_type['plus'] = list(map(lambda x: x + 1, muestras_by_type[season]))
-
-
-          years_plus = list(map(lambda x: x + 1, years))
-          years_plus.sort()
-
-          # Filter the climate data of the last two months of the years in the sample and get the sample id
-          merge_a =  data[data['year'].isin(years)]
-          merge_a = merge_a[merge_a['month'].isin([11,12])]
-          merge_a = pd.merge(merge_a, muestras_by_type[['index', season]], left_on = 'year', right_on = season)
-          merge_a.drop(season, axis = 1,inplace = True)
-
-          # Filter the climate data of the first month in the next year of the years in sample and get the sample id
-          merge_b = data[data['year'].isin(years_plus)]
-          merge_b = merge_b[merge_b['month'] == 1]
-          merge_b = pd.merge(merge_b, muestras_by_type[['index', 'plus']], left_on = 'year', right_on = 'plus')
-          merge_b.drop('plus', axis = 1,inplace = True)
-
-          # Merge the climate data filtered
-          merge = pd.concat([merge_a, merge_b])
-
-
-        else:
-          if season == 'Dec-Jan-Feb':
-            # If season is December-January-February
-
-
-            # Calculate the next year of the year sample and assign the same sample id
-            muestras_by_type['plus'] = list(map(lambda x: x + 1, muestras_by_type[season]))
-
-            years_plus = list(map(lambda x: x + 1, years))
-            years_plus.sort()
-
-            # Filter the climate data of the last month of the years in the sample and get the sample id
-
-            merge_a = data[data['year'].isin(years)]
-            merge_a = merge_a[merge_a['month'] == 12]
-            merge_a = pd.merge(merge_a, muestras_by_type[['index', season]], left_on = 'year', right_on = season)
-            merge_a = merge_a.drop(columns = [season])
-
-            # Filter the climate data of the first two months in the next year of the years in sample and get the sample id
-
-            merge_b = data[data['year'].isin(years_plus)]
-            merge_b = merge_b[merge_b['month'].isin([1,2])]
-            merge_b = pd.merge(merge_b, muestras_by_type[['index', 'plus']], left_on = 'year', right_on = 'plus')
-            merge_b = merge_b.drop(columns = ['plus'])
-
-            # Merge filtered data
-            merge = pd.concat([merge_a, merge_b])
-
-
-          else:
-            if season == 'Dec-Jan':
-
-                    # Calculate the next year of the year sample and assign the same sample id
-                    muestras_by_type['plus'] = list(map(lambda x: x + 1, muestras_by_type[season]))
-
-                    years_plus = list(map(lambda x: x + 1, years))
-                    years_plus.sort()
-
-                    # Filter the climate data of the last month of the years in the sample and get the sample id
-
-                    merge_a = data[data['year'].isin(years)]
-                    merge_a = merge_a[merge_a['month'] == 12]
-                    merge_a = pd.merge(merge_a, muestras_by_type[['index', season]], left_on = 'year', right_on = season)
-                    merge_a = merge_a.drop(columns = [season])
-
-                    # Filter the climate data of the first two months in the next year of the years in sample and get the sample id
-
-                    merge_b = data[data['year'].isin(years_plus)]
-                    merge_b = merge_b[merge_b['month'] == 1]
-                    merge_b = pd.merge(merge_b, muestras_by_type[['index', 'plus']], left_on = 'year', right_on = 'plus')
-                    merge_b = merge_b.drop(columns = ['plus'])
-
-                    # Merge filtered data
-                    merge = pd.concat([merge_a, merge_b])
-
-            else:
-                    # If season is another, filter climate data of the years in sample and get the sample id
-
-                    merge = data.loc[data['year'].isin(years)]
-                    merge = merge.loc[(merge['month'] >= x['Start'].iloc[0]) & (merge['month'] <= x['End'].iloc[0])]
-                    merge = pd.merge(merge,muestras_by_type[['index',season]],left_on = 'year', right_on = season)
-                    merge = merge.drop(columns = [season])
-
+        p = pd.DataFrame()
+        for x in range(len(years)):
+            p1 = self.process_escenario(data=data, season=season, year=years[x], index=muestras_by_type.iloc[x]['index'])
+            p = pd.concat([p, p1], ignore_index=True)
 
         # Join seasons samples by column by sample id
         base_years = pd.concat([base_years, muestras_by_type[['index',season]]], axis = 1,ignore_index=True)
 
         # Join climate data filtered for the seasons
-        seasons_range = pd.concat([seasons_range, merge])
+        seasons_range = pd.concat([seasons_range, p])
 
 
       seasons_range = seasons_range.rename(columns = {'index': 'id'})
@@ -494,9 +434,9 @@ class Resampling():
             return base_years, seasons_range, problem
 
 
-  def add_year(self, year_forecast, m):
+  def add_year(self, year_forecast, observed_month, current_month):
   
-    if m < datetime.today().month:
+    if observed_month < current_month:
      a = year_forecast + 1
     else:
       a = year_forecast
@@ -505,7 +445,7 @@ class Resampling():
 
 
 
-  def save_forecast(self, station, output_root, year_forecast, seasons_range, base_years):
+  def save_forecast(self, station, output_root, year_forecast, seasons_range, base_years, current_month):
 
 
     if isinstance(base_years, pd.DataFrame):
@@ -529,7 +469,7 @@ class Resampling():
           df = df.drop(columns = ['year'])
 
           for j in list(range(len(df))):          
-              df.loc[j, 'year'] = self.add_year(year_forecast = year_forecast, m = df.loc[j, 'month'])
+              df.loc[j, 'year'] = self.add_year(year_forecast = year_forecast, observed_month= df.loc[j, 'month'], current_month= current_month)
 
           df = df.drop(['index','id', 'season'], axis = 1)
           df['year'] = df['year'].astype('int')
@@ -556,12 +496,31 @@ class Resampling():
       vars = [item for item in vars if item != "month"]
       vars = [item for item in vars if item != "day"]
 
-      for i in range(len(vars)):
-         print(df.groupby(['year', 'month'])[vars[i]].mean().reset_index().rename(columns = {vars[i]: 'avg'}).sort_values(['year', 'month'], ascending = True))
+      accum = df.groupby(['id', 'month'])['prec'].sum().reset_index().rename(columns = {'id': 'escenario_id'})#.sort_values(['id', 'month'], ascending = True).reset_index()#
+      prom = df.groupby(['id', 'month'])[vars].mean().rename(columns = {'id': 'escenario_id'})#.reset_index()#.sort_values(['id', 'month'], ascending = True).reset_index()#.rename(columns = {vars[i]: 'max'})
 
-         df.groupby(['year', 'month'])[vars[i]].max().reset_index().rename(columns = {vars[i]: 'max'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_max.csv"), index=False)
-         df.groupby(['year', 'month'])[vars[i]].min().reset_index().rename(columns = {vars[i]: 'min'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_min.csv"), index=False)
-         df.groupby(['year', 'month'])[vars[i]].mean().reset_index().rename(columns = {vars[i]: 'avg'}).sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_avg.csv"), index=False)
+      summary = pd.merge(accum, prom, on=["escenario_id", "month"])
+
+      summary_min = summary.groupby(['month']).min().reset_index().drop(['escenario_id'], axis = 1)#.sort_values(['id', 'month'], ascending = True).reset_index()#.rename(columns = {vars[i]: 'max'})
+      summary_min = self.add_year(summary_min, year_forecast, current_month=current_month)
+
+      summary_max = summary.groupby(['month']).max().reset_index().drop(['escenario_id'], axis = 1)
+      summary_max = self.add_year(summary_max, year_forecast, current_month=current_month)
+
+      
+      summary_avg = summary.groupby(['month']).mean().reset_index().drop(['escenario_id'], axis = 1)
+      summary_avg = self.add_year(summary_avg, year_forecast, current_month=current_month)
+
+      vars = [item for item in vars if item != "id"]
+      vars.append('prec')
+
+      for i in range(len(vars)):
+         
+
+         summary_min[['year','month',vars[i]]].sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_min.csv"), index=False)
+         summary_max[['year','month',vars[i]]].sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_max.csv"), index=False)
+         summary_avg[['year','month',vars[i]]].sort_values(['year', 'month'], ascending = True).to_csv(os.path.join(output_summary, f"{station}_{vars[i]}_avg.csv"), index=False)
+
 
 
       print("Minimum, Maximum and Average of variables by escenary is saved in {}".format(output_summary))
@@ -574,7 +533,7 @@ class Resampling():
     
     
 
-  def master_processing(self,station, input_root, climate_data_root, verifica ,output_root,  year_forecast):
+  def master_processing(self,station, input_root, climate_data_root, verifica ,output_root,  year_forecast, current_month):
 
 
     if not os.path.exists(output_root):
@@ -599,7 +558,8 @@ class Resampling():
                   output_root = output_root,
                   year_forecast = year_forecast,
                   base_years = resampling_forecast[0],
-                  seasons_range = resampling_forecast[1])
+                  seasons_range = resampling_forecast[1],
+                  current_month= current_month)
 
     if len(resampling_forecast) == 3:
         oth =os.path.join(output_root, "issues.csv")
@@ -638,7 +598,8 @@ class Resampling():
                                                climate_data_root = self.path_inputs_daily,
                                                output_root = self.path_outputs_res,
                                                verifica = verifica,
-                                               year_forecast = self.year_forecast)
+                                               year_forecast = self.year_forecast,
+                                               current_month= self.current_month)
                                                   ), meta=_col
                                                   ).compute(scheduler='processes')
     return sample
