@@ -356,7 +356,7 @@ class Resampling():
 
         muestras_by_type = []
         for i in range(len(muestras)):
-              m = gen_muestras(new_data, muestras.iloc[i]['Type'])
+              m = self.gen_muestras(new_data, muestras.iloc[i]['Type'])
               muestras_by_type.append(m)           
 
 
