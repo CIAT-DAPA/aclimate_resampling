@@ -201,8 +201,8 @@ class Resampling():
     return m['year']
   
 
-  def process_escenario(self, data, season, year,index):
-
+  def process_escenario(self,data, season, month_start, month_end, year,index):
+          #data = s
       if season == 'Nov-Dec-Jan':
               m1 = data[(data['month'].isin([11,12])) & (data['year']== year)]
               m2 = pd.concat([m1, data[(data['month'] == 1) & (data['year'] == year+1)]])
@@ -219,8 +219,10 @@ class Resampling():
                         m2 = pd.concat([m1,data[(data['month'] == 1) & (data['year'] == year + 1)]])
                         m2.loc['index'] = index
                     else:
-                        m2 = data[data['year'] == year]
+                        m2 = data[(data['year'] == year)]
+                        m2 = m2[(m2['month']  >= month_start) & (m2['month'] <= month_end)]
                         m2['index'] = index
+
       return m2
 
   def forecast_station(self, station, prob, daily_data_root, output_root, year_forecast, forecast_period):
@@ -366,7 +368,7 @@ class Resampling():
 
         p = pd.DataFrame()
         for x in range(len(years)):
-            p1 = self.process_escenario(data=data, season=season, year=years[x], index=muestras_by_type.iloc[x]['index'])
+            p1 = self.process_escenario(data=data, season=season, month_start= x['Start'].iloc[0], month_end = x['End'].iloc[0],year=years[j], index=muestras_by_type.iloc[j]['index'])
             p = pd.concat([p, p1], ignore_index=True)
 
         # Join seasons samples by column by sample id

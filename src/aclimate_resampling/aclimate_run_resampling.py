@@ -23,7 +23,7 @@ def main():
     parser.add_argument("-m", "--prev-months", type=int, help="Previous months", required=True)
     parser.add_argument("-c", "--cores", type=int, help="Number of cores", required=True)
     parser.add_argument("-y", "--forecast-year", type=int, help="Forecast year", required=True)
-    parser.add_argument("-y", "--actual-month", type=int, help="Actual month", required=True)
+    parser.add_argument("-a", "--actual-month", type=int, help="Actual month", required=True)
 
 
     args = parser.parse_args()
