@@ -372,7 +372,7 @@ class Resampling():
 
         p = pd.DataFrame()
         for j in range(len(years)):
-            p1 = process_escenario(data=data, season=season, month_start= x['Start'].iloc[0], month_end = x['End'].iloc[0],year=years[j], index=muestras_by_type.iloc[j]['index'])
+            p1 = self.process_escenario(data=data, season=season, month_start= x['Start'].iloc[0], month_end = x['End'].iloc[0],year=years[j], index=muestras_by_type.iloc[j]['index'])
             p = pd.concat([p, p1], ignore_index=True)
         # Join seasons samples by column by sample id
         base_years = pd.concat([base_years, muestras_by_type[['index', season]]], axis=1, ignore_index=True)
@@ -451,7 +451,7 @@ class Resampling():
 
 
 
-  def save_forecast(self, station, output_root, year_forecast, seasons_range, base_years, current_month):
+  def save_forecast(self, station, output_root, year_forecast, current_month, seasons_range, base_years):
 
 
     if isinstance(base_years, pd.DataFrame):
@@ -470,18 +470,19 @@ class Resampling():
       year_forecast = int(year_forecast)
       
       for i in range(len(IDs)):
+
           df = seasons_range[(seasons_range['id'] == IDs[i])]
+
           df = df.reset_index()
           df = df.drop(columns = ['year'])
 
-          for j in list(range(len(df))):          
-              df.loc[j, 'year'] = self.add_year(year_forecast = year_forecast, observed_month= df.loc[j, 'month'], current_month= current_month)
+          df = self.add_year(df = df, year_forecast = year_forecast, current_month=current_month)
 
-          df = df.drop(['index','id', 'season'], axis = 1)
-          df['year'] = df['year'].astype('int')
-
+          df = df.drop(['index', 'season'], axis = 1)
+          df1 = df.copy()
+          
           escenarios.append(df)
-          df.to_csv(os.path.join(output_estacion ,f"{station}_escenario_{str(i+1)}.csv"), index=False)
+          df1.drop(['id'], axis = 1).to_csv(os.path.join(output_estacion ,f"{station}_escenario_{str(i+1)}.csv"), index=False)
 
       print("Escenaries saved in {}".format(output_estacion))
 
@@ -501,6 +502,8 @@ class Resampling():
       vars = [item for item in vars if item != "year"]
       vars = [item for item in vars if item != "month"]
       vars = [item for item in vars if item != "day"]
+      vars = [item for item in vars if item != "prec"]
+
 
       accum = df.groupby(['id', 'month'])['prec'].sum().reset_index().rename(columns = {'id': 'escenario_id'})#.sort_values(['id', 'month'], ascending = True).reset_index()#
       prom = df.groupby(['id', 'month'])[vars].mean().rename(columns = {'id': 'escenario_id'})#.reset_index()#.sort_values(['id', 'month'], ascending = True).reset_index()#.rename(columns = {vars[i]: 'max'})
