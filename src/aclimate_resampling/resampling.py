@@ -440,14 +440,19 @@ class Resampling():
             
 
 
-  def add_year(self, year_forecast, observed_month, current_month):
+  def add_year(self,df, year_forecast, current_month):
   
-    if observed_month < current_month:
-     a = year_forecast + 1
-    else:
-      a = year_forecast
+    month = df['month']
+    for j in list(range(len(df))):          
 
-    return a
+      if month[j] < current_month:
+        df.loc[j, 'year'] = year_forecast + 1
+      else:
+        df.loc[j, 'year'] = year_forecast
+
+    df['year'] = df['year'].astype('int')
+
+    return df
 
 
 
@@ -476,7 +481,7 @@ class Resampling():
           df = df.reset_index()
           df = df.drop(columns = ['year'])
 
-          df = self.add_year(df = df, year_forecast = year_forecast, current_month=current_month)
+          df = self.add_year(df, year_forecast, current_month)
 
           df = df.drop(['index', 'season'], axis = 1)
           df1 = df.copy()
@@ -511,14 +516,14 @@ class Resampling():
       summary = pd.merge(accum, prom, on=["escenario_id", "month"])
 
       summary_min = summary.groupby(['month']).min().reset_index().drop(['escenario_id'], axis = 1)#.sort_values(['id', 'month'], ascending = True).reset_index()#.rename(columns = {vars[i]: 'max'})
-      summary_min = self.add_year(summary_min, year_forecast, current_month=current_month)
+      summary_min = self.add_year(summary_min, year_forecast, current_month)
 
       summary_max = summary.groupby(['month']).max().reset_index().drop(['escenario_id'], axis = 1)
-      summary_max = self.add_year(summary_max, year_forecast, current_month=current_month)
+      summary_max = self.add_year(summary_max, year_forecast, current_month)
 
       
       summary_avg = summary.groupby(['month']).mean().reset_index().drop(['escenario_id'], axis = 1)
-      summary_avg = self.add_year(summary_avg, year_forecast, current_month=current_month)
+      summary_avg = self.add_year(summary_avg, year_forecast,current_month)
 
       vars = [item for item in vars if item != "id"]
       vars.append('prec')
