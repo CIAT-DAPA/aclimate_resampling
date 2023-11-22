@@ -23,6 +23,8 @@ def main():
     parser.add_argument("-m", "--prev-months", type=int, help="Previous months", required=True)
     parser.add_argument("-c", "--cores", type=int, help="Number of cores", required=True)
     parser.add_argument("-y", "--forecast-year", type=int, help="Forecast year", required=True)
+    parser.add_argument("-a", "--actual-month", type=int, help="Actual month", required=True)
+
 
     args = parser.parse_args()
 
@@ -38,7 +40,7 @@ def main():
     start_date = (datetime.date.today() - pd.DateOffset(months=months_previous)).replace(day=1)
     cores = args.cores
     
-    ar = Resampling(path, country, year_forecast = args.forecast_year)
+    ar = Resampling(path, country, year_forecast = args.forecast_year, current_month= args.actual_month)
     ar.resampling()
     dd = CompleteData(start_date,country,path,cores=cores)
     dd.run()
