@@ -217,7 +217,7 @@ class Resampling():
                     if season == 'Dec-Jan':
                         m1 = data[(data['month'] == 12) & (data['year'] == year)]
                         m2 = pd.concat([m1,data[(data['month'] == 1) & (data['year'] == year + 1)]])
-                        m2.loc['index'] = index
+                        m2['index'] = index
                     else:
                         m2 = data[(data['year'] == year)]
                         m2 = m2[(m2['month']  >= month_start) & (m2['month'] <= month_end)]
@@ -479,7 +479,7 @@ class Resampling():
           df = seasons_range[(seasons_range['id'] == IDs[i])]
 
           df = df.reset_index()
-          df = df.drop(columns = ['year'])
+          #df = df.drop(columns = ['year'])
 
           df = self.add_year(df, year_forecast, current_month)
 
