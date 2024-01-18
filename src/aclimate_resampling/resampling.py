@@ -284,7 +284,7 @@ class Resampling():
 
       # Adjust the year if the forecast period is 'tri' if necessary
       if  any(np.isin(season, tri_seasons)) :
-         year_forecast = year_forecast+1
+         year_forecast = year_forecast #+1
 
       # Check if year of forecast is a leap year for February
       leap_forecast = (year_forecast%400 == 0) or (year_forecast%4==0 and year_forecast%100!=0)
