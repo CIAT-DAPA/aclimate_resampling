@@ -278,35 +278,42 @@ class Resampling():
       return base_years, seasons_range,  problem
 
     else:
+
       # Get the season for the forecast
-      season = np.unique(cpt_prob['season'])
-      tri_seasons = ['Dec-Jan-Feb', 'Jan-Feb-Mar', 'Feb-Mar-Apr', 'Jan-Feb', 'Feb-Mar']
+      season = list(np.unique(cpt_prob['season']))
+      seasons_1 = [['Sept-Oct-Nov','Dec-Jan-Feb'], 
+                   ['Oct-Nov-Dec','Jan-Feb-Mar'],
+                   ['Nov-Dec-Jan','Feb-Mar-Apr'],
+                   ['Dec-Jan-Feb','Mar-Apr-May'],
+                   ['Sept-Oct','Nov-Dec','Jan-Feb'],
+                   ['Oct-Nov','Dec-Jan','Feb-Mar'],
+                   ['Nov-Dec','Jan-Feb','Mar-Apr'],
+                   ['Dec-Jan','Feb-Mar','Apr-May']]
 
       # Adjust the year if the forecast period is 'tri' if necessary
-      if  any(np.isin(season, tri_seasons)) :
-         year_forecast = year_forecast #+1
+      for idx2, sublist2 in enumerate(seasons_1):
+         if season == sublist2: 
+            year_forecast = year_forecast+1
 
       # Check if year of forecast is a leap year for February
-      leap_forecast = (year_forecast%400 == 0) or (year_forecast%4==0 and year_forecast%100!=0)
+      leap_forecast = ((year_forecast %400 == 0) and (year_forecast % 100 == 0)) or ((year_forecast%4==0) and (year_forecast%100!=0))
 
       # Filter the February data for leap years
       clim_feb = clim.loc[clim['month'] == 2]
-      clim_feb['leap'] = [True if (year%400 == 0) or (year%4==0 and year%100!=0) else False for year in clim_feb['year']]
 
       # Standardize february months by year according to year of forecat
       february = pd.DataFrame()
       for i in np.unique(clim_feb['year']):
         year_data =  clim_feb.loc[clim_feb['year']==i,:]
-        year = year_data.loc[:,'leap']
 
         # If year of forecast is a leap year and a year in climate data is not, then add one day to february in climate data
-        if leap_forecast == True and year.iloc[0] == False:
+        if leap_forecast == True and len(year_data.index) == 28:
           year_data = pd.concat([year_data, year_data.sample(1)], ignore_index=True)
           year_data.iloc[-1,0] = 29
+        
         else:
-
           # If year of forecast is not a leap year and a year in climate data is, then remove one day to february in climate data
-          if leap_forecast == False and year.iloc[0] == True:
+          if leap_forecast == False and len(year_data.index) == 29:
             year_data =  year_data.iloc[:-1]
           else:
 
@@ -316,8 +323,7 @@ class Resampling():
 
 
       # Concat standardized february data with the rest of climate data
-      data = february.drop(['leap'], axis = 1 )
-      data = pd.concat([data,clim.loc[clim['month'] != 2]]).sort_values(['year','month'])
+      data = pd.concat([february,clim.loc[clim['month'] != 2]]).sort_values(['year','month'])
 
       # Start the resampling process for every season of analysis in CPT probabilities file
 
