@@ -285,7 +285,14 @@ class CompleteData():
             for index,location in locations.iterrows():
                 row, col = abs(src.y - location['lat']).argmin(),abs(src.x - location['lon']).argmin()
                 value = src.values[0, row, col]
-                date_str = file[date_start:date_end]
+                #Some days of era5 have a long name. So, this conditional is for fix the string lenght.
+                if "v1.1.1.tif" in file:
+                    first_date = -25
+                    second_date = -17
+                else:
+                    first_date = date_start
+                    second_date = date_end
+                date_str = file[first_date:second_date]
                 date = datetime.datetime.strptime(date_str, date_format)
                 data.append({'ws':location['ws'],
                                 'day':date.day,
@@ -375,6 +382,26 @@ class CompleteData():
         df = df[['ws','day', 'month', 'year', 'prec','t_max', 't_min', 'sol_rad']]
 
         return df
+    
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Function for checking if t_min, t_max and sol_rad have wrong values and replace them with climatology.
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # row: dataframe row with months generate
+    # climatology: climatology
+    def validate_replace(self, row, climatology):
+        # Validate and replace t_max
+        if row['t_max'] < 0 or row['t_max'] > 40:
+            row['t_max'] = climatology.loc[row['day'] - 1, 't_max']
+        
+        # Validate and replace t_min
+        if row['t_min'] < 0 or row['t_min'] > 40:
+            row['t_min'] = climatology.loc[row['day'] - 1, 't_min']
+        
+        # Validate and replace sol_rad
+        if row['sol_rad'] < 10 or row['sol_rad'] > 40:
+            row['sol_rad'] = climatology.loc[row['day'] - 1, 'sol_rad']
+        
+        return row
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to write the outputs
@@ -382,9 +409,12 @@ class CompleteData():
     # locations: Dataframe with coordinates for each location that we want to extract.
     # data: Dataframe with months generate
     def write_outputs(self,locations,data,climatology,variables=['t_max','t_min','prec','sol_rad']):
+        # Apply the validation and replacement function to each row of df_data
+        data = data.apply(lambda x: self.validate_replace(x, climatology), axis=1)
         save_path = self.path_country_outputs_forecast_resampling
         cols_date = ['day','month','year']
         cols_total = cols_date + variables
+
         for index,location in tqdm(locations.iterrows(),total=locations.shape[0],desc="Writing scenarios"):
             files = glob.glob(os.path.join(save_path,location["ws"], '*'))
             for f in files:
@@ -413,7 +443,7 @@ class CompleteData():
                     if not matching_row.empty:
                         for v in variables:
                             # Update the NaN value in df1 with the corresponding value from df2
-                            df_data.at[index, v] = matching_row[v].values[0]
+                            df_data.at[index, v] = matching_row[v].values[0]                
 
                 #if df_data.shape[0] == 0:
                 #    df_data = climatology.loc[climatology["ws"] == location["ws"],cols_total]
