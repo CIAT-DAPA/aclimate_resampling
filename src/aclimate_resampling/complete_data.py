@@ -209,7 +209,7 @@ class CompleteData():
                         'variable': enum_variables[v]["name"],
                         'statistic': enum_variables[v]["statistics"],
                         'year': year,
-                        'month': [f"{month:02}"],
+                        'month': [f"{month:02d}"],
                         'day': days,
                         'version': self.cdsapi_version,
                     },
