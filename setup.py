@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="aclimate_resampling",
-    version='v0.0.41',
+    version='v0.0.42',
     author="stevensotelo",
     author_email="h.sotelo@cgiar.com",
     description="Resampling module",
