@@ -15,7 +15,7 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.9",
     entry_points={
         'console_scripts': [
             'aclimate_resampling=aclimate_resampling.aclimate_run_resampling:main',
@@ -25,7 +25,7 @@ setup(
         "attrs==23.1.0",
         "affine==2.4.0",
         "bokeh==3.2.2",
-        "cdsapi==0.6.1",
+        "cdsapi==0.7.2",
         "certifi==2023.7.22",
         "charset-normalizer==3.2.0",
         "click>=7.0.0",
