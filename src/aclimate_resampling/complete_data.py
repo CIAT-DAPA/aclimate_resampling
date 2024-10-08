@@ -202,6 +202,7 @@ class CompleteData():
             self.manager.mkdir(save_path_era5_data_tmp)
 
             if self.force or os.path.exists(save_path_era5) == False:
+                formatted_month = [f"{int(month):02d}" if isinstance(month, str) else f"{month:02d}"]
                 c = cdsapi.Client(timeout=600)
                 c.retrieve('sis-agrometeorological-indicators',
                     {
@@ -209,7 +210,7 @@ class CompleteData():
                         'variable': enum_variables[v]["name"],
                         'statistic': enum_variables[v]["statistics"],
                         'year': year,
-                        'month': [f"{month:02}"],
+                        'month': formatted_month,
                         'day': days,
                         'version': self.cdsapi_version,
                     },
