@@ -202,7 +202,7 @@ class CompleteData():
             self.manager.mkdir(save_path_era5_data_tmp)
 
             if self.force or os.path.exists(save_path_era5) == False:
-                c = cdsapi.Client(timeout=600,quiet=False,verify=False)
+                c = cdsapi.Client(timeout=600)
                 c.retrieve('sis-agrometeorological-indicators',
                     {
                         'format': 'zip',
@@ -310,7 +310,6 @@ class CompleteData():
     def filter_extract_data(self, data_frame):
         current_year = self.start_date.year
         current_month = self.start_date.month
-
         if "year" not in data_frame.columns:
             raise ValueError("ERROR year column doesn't exists. Current columns: " + ', '.join(data_frame.columns))
         if "month" not in data_frame.columns:
@@ -330,7 +329,8 @@ class CompleteData():
         dir_path = os.path.join(save_path,"chirp")
         data = self.extract_values(dir_path,'prec',locations,-14,-4,'%Y.%m.%d')
         df = pd.DataFrame(data)
-        df = self.filter_extract_data(df)
+        if not df.empty:
+            df = self.filter_extract_data(df)
         return df
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -350,7 +350,8 @@ class CompleteData():
                 df = df_tmp.copy()
             else:
                 df = pd.merge(df,df_tmp,how='left',on=['ws','day','month','year'])
-        df = self.filter_extract_data(df)
+        if not df.empty:
+            df = self.filter_extract_data(df)
         return df
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
