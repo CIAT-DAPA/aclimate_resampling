@@ -292,11 +292,12 @@ class Resampling():
 
       # Adjust the year if the forecast period is 'tri' if necessary
       for idx2, sublist2 in enumerate(seasons_1):
-         if season == sublist2: 
-            year_forecast = year_forecast+1
+        if any(s in sublist2 for s in season): 
+            year_forecast += 1
+            break
 
       # Check if year of forecast is a leap year for February
-      leap_forecast = ((year_forecast %400 == 0) and (year_forecast % 100 == 0)) or ((year_forecast%4==0) and (year_forecast%100!=0))
+      leap_forecast =  (year_forecast % 4 == 0) and (year_forecast % 100 != 0 or year_forecast % 400 == 0)
 
       # Filter the February data for leap years
       clim_feb = clim.loc[clim['month'] == 2]
