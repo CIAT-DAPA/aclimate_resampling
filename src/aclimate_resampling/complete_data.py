@@ -214,8 +214,7 @@ class CompleteData():
                     'version': self.cdsapi_version,
                 }
                 if enum_variables[v]["name"] == "2m_temperature":
-                    request_data['statistic'] = enum_variables[v]["statistics"],
-                
+                    request_data['statistic'] = enum_variables[v]["statistics"]
                 c.retrieve(data_set, request_data, save_path_era5)
             else:
                 print("\tFile already downloaded!",save_path_era5)
