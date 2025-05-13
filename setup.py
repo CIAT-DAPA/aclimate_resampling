@@ -25,7 +25,7 @@ setup(
         "attrs==23.1.0",
         "affine==2.4.0",
         "bokeh==3.2.2",
-        "cdsapi==0.7.2",
+        "cdsapi==0.7.6",
         "certifi==2023.7.22",
         "charset-normalizer==3.2.0",
         "click>=7.0.0",
