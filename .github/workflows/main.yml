@@ -97,7 +97,7 @@ jobs:
       run: zip releaseScripts.zip ./src/* -r
     # Upload Artifacts
     - name: Upload Scripts artifact for deployment job
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Scripts
         path: releaseScripts.zip
