@@ -203,19 +203,20 @@ class CompleteData():
 
             if self.force or os.path.exists(save_path_era5) == False:
                 formatted_month = [f"{int(month):02d}" if isinstance(month, str) else f"{month:02d}"]
-                c = cdsapi.Client(timeout=600)
-                c.retrieve('sis-agrometeorological-indicators',
-                    {
-                        'format': 'zip',
-                        'variable': enum_variables[v]["name"],
-                        'statistic': enum_variables[v]["statistics"],
-                        'year': year,
-                        'month': formatted_month,
-                        'day': days,
-                        'version': self.cdsapi_version,
-                    },
-                    save_path_era5
-                )
+                c = cdsapi.Client(timeout=800)
+                data_set = 'sis-agrometeorological-indicators'
+                request_data = {
+                    'format': 'zip',
+                    'variable': enum_variables[v]["name"],
+                    'year': [f"{year}"],
+                    'month': formatted_month,
+                    'day': days,
+                    'version': self.cdsapi_version,
+                }
+                if enum_variables[v]["name"] == "2m_temperature":
+                    request_data['statistic'] = enum_variables[v]["statistics"],
+                
+                c.retrieve(data_set, request_data, save_path_era5)
             else:
                 print("\tFile already downloaded!",save_path_era5)
 
