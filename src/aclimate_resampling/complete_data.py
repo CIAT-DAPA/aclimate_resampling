@@ -8,6 +8,7 @@ import glob
 import datetime
 import re
 import urllib.request
+import urllib.error
 from datetime import timedelta
 from zipfile import ZipFile
 import gzip
@@ -113,16 +114,32 @@ class CompleteData():
     # force: If you want to force to execute the process
     # remove: Set if you want to remove the gz file
     def download_file(self, url, path, force = False, remove = True):
-        if force or os.path.exists(path.replace('.gz','')) == False:
-            if os.path.exists(path.replace('.gz','')):
-                os.remove(path.replace('.gz',''))
-            with DownloadProgressBar(unit='B', unit_scale=True,miniters=1, desc=url.split('/')[-1]) as t:
-                urllib.request.urlretrieve(url, filename=path, reporthook=t.update_to)
-            with gzip.open(path, 'rb') as f_in:
-                with open(path.replace('.gz',''), 'wb') as f_out:
-                # Read the compressed content and write it to the output file
-                    f_out.write(f_in.read())
-            os.remove(path)
+        # 'path' points to the .tif.gz target; the final output is the uncompressed .tif.
+        # The CHIRP server may serve the compressed .tif.gz or only the plain .tif,
+        # so we try .tif.gz first and fall back to .tif if it is not available.
+        output_path = path.replace('.gz','')
+        if force or os.path.exists(output_path) == False:
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            try:
+                with DownloadProgressBar(unit='B', unit_scale=True,miniters=1, desc=url.split('/')[-1]) as t:
+                    urllib.request.urlretrieve(url, filename=path, reporthook=t.update_to)
+                with gzip.open(path, 'rb') as f_in:
+                    with open(output_path, 'wb') as f_out:
+                    # Read the compressed content and write it to the output file
+                        f_out.write(f_in.read())
+                if remove:
+                    os.remove(path)
+            except (urllib.error.URLError, OSError):
+                # Fallback: download the uncompressed .tif directly
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                tif_url = url.replace('.tif.gz','.tif')
+                with DownloadProgressBar(unit='B', unit_scale=True,miniters=1, desc=tif_url.split('/')[-1]) as t:
+                    urllib.request.urlretrieve(tif_url, filename=output_path, reporthook=t.update_to)
         else:
             print("\tFile already downloaded!",path)
 
@@ -145,14 +162,19 @@ class CompleteData():
             dates = [self.start_date + timedelta(days=x) for x in range((self.end_date - self.start_date).days + 1)]
 
         # Creating a list of all files that should be downloaded
-        urls = [f"http://data.chc.ucsb.edu/products/CHIRP/daily/{self.start_date.year}/chirp.{date.strftime('%Y.%m.%d')}.tif.gz" for date in dates]
+        urls = [f"https://data.chc.ucsb.edu/products/CHIRP/daily/{self.start_date.year}/chirp.{date.strftime('%Y.%m.%d')}.tif.gz" for date in dates]
         files = [os.path.basename(url) for url in urls]
         save_path_chirp_all = [os.path.join(save_path_chirp, file) for file in files]
         force_all = [self.force] * len(files)
 
-        # Download in parallel
+        # Download in parallel. list() consumes the map so download errors are not silently swallowed.
         with ThreadPoolExecutor(max_workers=self.cores) as executor:
-            executor.map(self.download_file, urls, save_path_chirp_all,force_all)
+            list(executor.map(self.download_file, urls, save_path_chirp_all,force_all))
+
+        # Verify that all expected .tif files were downloaded
+        downloaded = [f for f in os.listdir(save_path_chirp) if f.endswith('.tif')]
+        if len(downloaded) < len(dates):
+            raise ValueError(f"ERROR: CHIRPS download incomplete in {save_path_chirp}: {len(downloaded)}/{len(dates)} .tif files found.")
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Function to download ERA 5 data
