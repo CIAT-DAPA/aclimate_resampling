@@ -5,8 +5,8 @@ import argparse
 
 from dateutil.relativedelta import relativedelta
 
-from aclimate_resampling.resampling import Resampling
-from aclimate_resampling.complete_data import CompleteData
+from resampling import Resampling
+from complete_data import CompleteData
 
 def main():
     # Params
@@ -40,12 +40,14 @@ def main():
     start_date = (datetime.date.today() - pd.DateOffset(months=months_previous)).replace(day=1)
     cores = args.cores
     
-    ar = Resampling(path, country, year_forecast = args.forecast_year, current_month= args.actual_month)
-    ar.resampling()
+    #ar = Resampling(path, country, year_forecast = args.forecast_year, current_month= args.actual_month)
+    #ar.resampling()
     dd = CompleteData(start_date,country,path,cores=cores)
-    dd.run()
+    #dd.run()
+    dd.prepare_env()
+    dd.download_era5_data()
 
 if __name__ == "__main__":
     main()
 
-#python resampling.py "ETHIOPIA" "D:\\CIAT\\Code\\USAID\\aclimate_resampling\\data\\" "-1" 2 2023
+#python src\aclimate_resampling\aclimate_run_resampling.py -C COLOMBIA -p D:\test_forecast\workdir\workdir\workdir -m 1 -c 6 -y 2025 -a 5
