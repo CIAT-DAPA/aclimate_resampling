@@ -2,11 +2,13 @@ import sys
 import os
 import shutil
 import glob
+import urllib.error
 from zipfile import ZipFile
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import unittest
+from unittest import mock
 from datetime import datetime
 from datetime import timedelta
 from src.aclimate_resampling.complete_data import CompleteData
@@ -28,7 +30,7 @@ class TestCompleteData(unittest.TestCase):
         self.era5_data = "Temperature-Air-2m-Max-24h_C3S-glob-agric_AgERA5_20230601_final-v1.0.tif"
         self.chirps_url_name = f"chirp.{self.start_date.strftime('%Y.%m.%d')}.tif.gz"
         self.chirps_file_name = f"chirp.{self.start_date.strftime('%Y.%m.%d')}.tif"
-        self.url = f"http://data.chc.ucsb.edu/products/CHIRP/daily/{str(self.start_date.year)}/{self.chirps_url_name}"
+        self.url = f"https://data.chc.ucsb.edu/products/CHIRP/daily/{str(self.start_date.year)}/{self.chirps_url_name}"
         self.location = pd.DataFrame({'ws': ['Test Location'], 'lat': [6.4095], 'lon': [-72.0211]})
         self.locations = pd.DataFrame({ 'ws': ['Location 1', 'Location 2'], 'lat': [6.4095, 6.3830], 'lon': [-72.0211, -71.8700]})
 
@@ -176,6 +178,31 @@ class TestCompleteData(unittest.TestCase):
         
         # Check if the file was downloaded and extracted
         self.assertTrue(os.path.exists(self.chirps_file_path))
+
+    def test_download_file_fallback_to_tif(self):
+        self.move_tests_files()
+        # Test that when the compressed .tif.gz is not available (404), the download
+        # falls back to the uncompressed .tif file.
+        complete_data = CompleteData(self.start_date, self.country, self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        gz_path = self.chirps_file_path_compressed
+        tif_path = self.chirps_file_path
+
+        def fake_urlretrieve(url, filename=None, reporthook=None):
+            if url.endswith('.tif.gz'):
+                raise urllib.error.HTTPError(url, 404, 'Not Found', None, None)
+            # Fallback: the .tif is "downloaded" directly
+            with open(filename, 'wb') as f:
+                f.write(b'FAKE_TIF_CONTENT')
+
+        with mock.patch('urllib.request.urlretrieve', side_effect=fake_urlretrieve):
+            complete_data.download_file(self.url, gz_path, force=True)
+
+        # The uncompressed .tif must exist with the fallback content
+        self.assertTrue(os.path.exists(tif_path))
+        with open(tif_path, 'r') as f:
+            self.assertEqual(f.read(), 'FAKE_TIF_CONTENT')
     
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # TEST DOWNLOAD DATA CHIRP
