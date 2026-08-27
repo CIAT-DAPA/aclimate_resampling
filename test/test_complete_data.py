@@ -1,529 +1,612 @@
-# Functions to complete month in the climate scenarios
-# Created by: Steven Sotelo
-# Alliance Bioversity, CIAT. 2023
-
 import sys
 import os
+import shutil
 import glob
-import datetime
-import re
-import urllib.request
-from datetime import timedelta
 from zipfile import ZipFile
-import gzip
-from concurrent.futures import ThreadPoolExecutor
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import unittest
+from datetime import datetime
+from datetime import timedelta
+from src.aclimate_resampling.complete_data import CompleteData
 import pandas as pd
-from tqdm import tqdm
 import numpy as np
-#import rasterio
-import rioxarray 
-import xarray as xr
-import multiprocessing as mp
 
-import cdsapi # https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-agrometeorological-indicators?tab=form
+class TestCompleteData(unittest.TestCase):
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+    def setUp(self):
+        # Create a temporary test directory to store downloaded files
+        self.start_date = datetime(2023, 6, 1)
+        self.start_date_leapyear = datetime(2020, 2, 1) # Leap year
+        self.end_date = datetime(2023, 6, 3)  # Only 3 days for this test
+        self.cores = 2
+        self.country = 'ETHIOPIA'
+        self.variable_era5 = "t_max"
+        self.variables_era5 = ["t_max","t_min"]
+        self.chirp_data = "chirp.2023.06.01.tif"
+        self.era5_data = "Temperature-Air-2m-Max-24h_C3S-glob-agric_AgERA5_20230601_final-v1.0.tif"
+        self.chirps_url_name = f"chirp.{self.start_date.strftime('%Y.%m.%d')}.tif.gz"
+        self.chirps_file_name = f"chirp.{self.start_date.strftime('%Y.%m.%d')}.tif"
+        self.url = f"http://data.chc.ucsb.edu/products/CHIRP/daily/{str(self.start_date.year)}/{self.chirps_url_name}"
+        self.location = pd.DataFrame({'ws': ['Test Location'], 'lat': [6.4095], 'lon': [-72.0211]})
+        self.locations = pd.DataFrame({ 'ws': ['Location 1', 'Location 2'], 'lat': [6.4095, 6.3830], 'lon': [-72.0211, -71.8700]})
 
-from .tools import DownloadProgressBar,DirectoryManager
+        self.path_data = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+        self.path_data_inputs = os.path.join(self.path_data, self.country, 'inputs')
+        self.path_data_inputs_forecast = os.path.join(self.path_data_inputs, 'prediccionClimatica')
+        self.path_data_inputs_forecast_dailydata = os.path.join(self.path_data_inputs_forecast, 'dailyData')
+        self.path_data_outputs = os.path.join(self.path_data, self.country, 'outputs')
+        self.path_data_outputs_forecast = os.path.join(self.path_data_outputs, 'prediccionClimatica')
+        self.path_data_outputs_resampling = os.path.join(self.path_data_inputs_forecast, 'resampling')
 
-class CompleteData():
+        self.path_env = os.path.abspath(os.path.join(os.path.dirname(__file__), 'test_files'))
+        self.path_env_country = os.path.join(self.path_env,self.country)
+        self.path_env_country_inputs = os.path.join(self.path_env_country,"inputs")
+        self.path_env_country_inputs_forecast = os.path.join(self.path_env_country_inputs,"prediccionClimatica")
+        self.path_env_country_inputs_forecast_dailydata = os.path.join(self.path_env_country_inputs_forecast,"dailyData")
+        self.path_env_country_inputs_forecast_dailydownloaded = os.path.join(self.path_env_country_inputs_forecast,"daily_downloaded")
+        self.path_env_country_inputs_forecast_dailydownloaded_chirp = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded,"chirp")
+        self.path_env_country_inputs_forecast_dailydownloaded_era5 = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded,"era5")
+        self.path_env_country_outputs = os.path.join(self.path_env_country,"outputs")
+        self.path_env_country_outputs_forecast = os.path.join(self.path_env_country_outputs,"prediccionClimatica")
+        self.path_env_country_outputs_forecast_resampling = os.path.join(self.path_env_country_outputs_forecast,"resampling")
 
-    # start_date: start date to download.
-    def __init__(self,start_date,country,path,cores = 1,force = False):
-        self.start_date = start_date
-        self.country = country
-        self.path = path
-        self.cores = cores
-        self.force = force
-        self.end_date = (self.start_date + pd.DateOffset(months=1)) - pd.DateOffset(days=1)
-        self.manager = DirectoryManager()
-        self.path_country = ""
-        self.path_country_inputs = ""
-        self.path_country_inputs_forecast = ""
-        self.path_country_inputs_forecast_dailydata = ""
-        self.path_country_inputs_forecast_dailydownloaded = ""
-        self.path_country_outputs = ""
-        self.path_country_outputs_forecast = ""
-        self.path_country_outputs_forecast_resampling = ""
-        self.cdsapi_version = ""
+        self.chirps_file_path = os.path.join(self.path_env_country, self.chirps_file_name)
+        self.chirps_file_path_compressed = os.path.join(self.path_env_country, self.chirps_url_name)
 
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to prepare and validate the enviroment
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    def prepare_env(self):
-        # Creating paths
-        self.path_country = os.path.join(self.path,self.country)
-        self.cdsapi_version = "2_0"
-        self.path_country_inputs = os.path.join(self.path_country,"inputs")
-        self.path_country_inputs_forecast = os.path.join(self.path_country_inputs,"prediccionClimatica")
-        self.path_country_inputs_forecast_dailydata = os.path.join(self.path_country_inputs_forecast,"dailyData")
-        self.path_country_inputs_forecast_dailydownloaded = os.path.join(self.path_country_inputs_forecast,"daily_downloaded")
+        os.makedirs(self.path_env_country, exist_ok=True)
 
-        self.path_country_outputs = os.path.join(self.path_country,"outputs")
-        self.path_country_outputs_forecast = os.path.join(self.path_country_outputs,"prediccionClimatica")
-        self.path_country_outputs_forecast_resampling = os.path.join(self.path_country_outputs_forecast,"resampling")
-
-        print("Validating folders needed for",self.country,"in",self.path)
-        folders = [self.path_country,self.path_country_inputs,self.path_country_inputs_forecast,
-                   self.path_country_inputs_forecast_dailydata,self.path_country_outputs,self.path_country_outputs_forecast,
-                   self.path_country_outputs_forecast_resampling]
-        missing_files = ""
-        missing_count = 0
-
-        for idx, folder in enumerate(folders):
-            if not os.path.exists(folder):
-                missing_files = str(idx) + "-" + folder + ","
-                missing_count += 1
-
-        if missing_count > 0:
-            raise ValueError("ERROR Directories don't exist (" + str(missing_count) + "): " + missing_files)
-
-        self.manager.mkdir(self.path_country_inputs_forecast_dailydownloaded)
-        print("Init:",self.start_date,"End:",self.end_date,"Year:",self.start_date.year,"Month:",self.start_date.month)
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to list all weather stations
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # OUTPUT: Dataframe with a list of all weather stations
-    def list_ws(self):
-        errors = 0
-        excluded_folders = ["summary", "validation"]
-        df_ws = pd.DataFrame(columns=["ws","lat","lon","message"])
-        all_folders = glob.glob(os.path.join(self.path_country_outputs_forecast_resampling, '*'))
-        filtered_folders = [folder for folder in all_folders if folder.split(os.path.sep)[-1] not in excluded_folders]
-        df_ws["ws"] = [folder.split(os.path.sep)[-1] for folder in filtered_folders]
-        for index,row in df_ws.iterrows():
-            if os.path.exists(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv")):
-                df_tmp = pd.read_csv(os.path.join(self.path_country_inputs_forecast_dailydata,row["ws"] + "_coords.csv"))
-                df_ws.at[index,"lat"],df_ws.at[index,"lon"],df_ws.at[index,"message"] = df_tmp.at[0,"lat"],df_tmp.at[0,"lon"],""
-            else:
-                errors += 1
-                df_ws.at[index,"message"] = "ERROR with coordinates"
-        if errors > 0:
-            print("WARNING: Stations with problems",df_ws.loc[df_ws["message"].isna() == False,:])
-
-        return df_ws
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to download data
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # url: url of the file
-    # path: path to save file.
-    # force: If you want to force to execute the process
-    # remove: Set if you want to remove the gz file
-    def download_file(self, url, path, force = False, remove = True):
-        if force or os.path.exists(path.replace('.gz','')) == False:
-            if os.path.exists(path.replace('.gz','')):
-                os.remove(path.replace('.gz',''))
-            with DownloadProgressBar(unit='B', unit_scale=True,miniters=1, desc=url.split('/')[-1]) as t:
-                urllib.request.urlretrieve(url, filename=path, reporthook=t.update_to)
-            with gzip.open(path, 'rb') as f_in:
-                with open(path.replace('.gz',''), 'wb') as f_out:
-                # Read the compressed content and write it to the output file
-                    f_out.write(f_in.read())
-            os.remove(path)
-        else:
-            print("\tFile already downloaded!",path)
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to download chirp data
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # test: Set if it is a test or not. If it is test, it just will download three or two files. By default it is False
-    # OUTPUT: save rasters layers.
-    def download_data_chirp(self, test = False):
-        save_path = self.path_country_inputs_forecast_dailydownloaded
-        print(save_path)
-        # Create folder for data
-        save_path_chirp = os.path.join(save_path,"chirp")
-        self.manager.mkdir(save_path_chirp)
-
-        # Calculate dates to download data
-        if test:
-            dates = [self.start_date + timedelta(days=x) for x in [0,1]]
-        else:
-            dates = [self.start_date + timedelta(days=x) for x in range((self.end_date - self.start_date).days + 1)]
-
-        # Creating a list of all files that should be downloaded
-        urls = [f"http://data.chc.ucsb.edu/products/CHIRP/daily/{self.start_date.year}/chirp.{date.strftime('%Y.%m.%d')}.tif.gz" for date in dates]
-        files = [os.path.basename(url) for url in urls]
-        save_path_chirp_all = [os.path.join(save_path_chirp, file) for file in files]
-        force_all = [self.force] * len(files)
-
-        # Download in parallel
-        with ThreadPoolExecutor(max_workers=self.cores) as executor:
-            executor.map(self.download_file, urls, save_path_chirp_all,force_all)
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to download ERA 5 data
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # variables: List of variables to download. by default all are selected
-    # test: Set if it is a test or not. If it is test, it just will download two files. By default it is False
-    # OUTPUT: save rasters layers.
-    def download_era5_data(self,variables=["t_max","t_min","sol_rad"], test = False):
-        new_crs = '+proj=longlat +datum=WGS84 +no_defs'
-        # Define the variables classes and their parameters for the CDSAPI
-        enum_variables ={
-                            "t_max":{"name":"2m_temperature",
-                                    "statistics":['24_hour_maximum'],
-                                    "transform":"-",
-                                    "value":273.15},
-                            "t_min":{"name":"2m_temperature",
-                                    "statistics":['24_hour_minimum'],
-                                    "transform":"-",
-                                    "value":273.15},
-                            "sol_rad":{"name":"solar_radiation_flux",
-                                    "statistics":[],
-                                    "transform":"/",
-                                    "value":1000000}
-                        }
-
-        # Create folder for data
-        save_path = self.path_country_inputs_forecast_dailydownloaded
-        save_path_era5 = os.path.join(save_path,"era5")
-        self.manager.mkdir(save_path_era5)
-
-        # Calculate dates to download data
-        year = self.start_date.strftime("%Y")
-        month = self.start_date.strftime("%m")
-        if test:
-            days = [(self.start_date + timedelta(days=x)).strftime("%d") for x in [0,1]]
-        else:
-            days = [(self.start_date + timedelta(days=x)).strftime("%d") for x in range((self.end_date - self.start_date).days + 1)]
-        
-
-        # Process for each variable that should be downloaded
-        for v in variables:
-            print("\tProcesing",v)
-            # Creating folder for each variable
-            save_path_era5 = os.path.join(save_path,"era5",v + ".zip")
-            save_path_era5_data = os.path.join(save_path,"era5",v)
-            save_path_era5_data_tmp = os.path.join(save_path,"era5",v + "_tmp")
-            self.manager.mkdir(save_path_era5_data)
-            self.manager.mkdir(save_path_era5_data_tmp)
-
-            if self.force or os.path.exists(save_path_era5) == False:
-                formatted_month = [f"{int(month):02d}" if isinstance(month, str) else f"{month:02d}"]
-                c = cdsapi.Client(timeout=800)
-                data_set = 'sis-agrometeorological-indicators'
-                request_data = {
-                    'format': 'zip',
-                    'variable': enum_variables[v]["name"],
-                    'year': [f"{year}"],
-                    'month': formatted_month,
-                    'day': days,
-                    'version': self.cdsapi_version,
-                }
-                if enum_variables[v]["name"] == "2m_temperature":
-                    request_data['statistic'] = enum_variables[v]["statistics"]
-                c.retrieve(data_set, request_data, save_path_era5)
-            else:
-                print("\tFile already downloaded!",save_path_era5)
-
-            if self.force or len(os.listdir(save_path_era5_data_tmp)) == 0:
-                print("\tExtracting temporally",save_path_era5)
-                # loading the zip and creating a zip object
-                with ZipFile(save_path_era5, 'r') as zObject:
-                    # Extracting all the members of the zip
-                    # into a specific location.
-                    zObject.extractall(path=save_path_era5_data_tmp)
-                print("\tExtracted!")
-            else:
-                print("\tFiles already extracted!",save_path_era5_data_tmp)
-
-            if self.force or len(os.listdir(save_path_era5_data)) == 0:
-                tmp_files = glob.glob(os.path.join(save_path_era5_data_tmp, '*'))
-                print("\tSetting CRS",save_path_era5_data_tmp,len(tmp_files))
-                for file in tqdm(tmp_files,desc="nc to raster and setting new CRS " + v):
-                    input_file = file
-                    output_file = os.path.join(save_path_era5_data,file.split(os.path.sep)[-1].replace(".nc",".tif"))
-
-                    # Context manager ensures the NetCDF file handle is closed
-                    # (otherwise the .nc files stay locked on Windows).
-                    with xr.open_dataset(input_file) as xds:
-                        if enum_variables[v]["transform"] == "-":
-                            xds = xds - enum_variables[v]["value"]
-                        elif enum_variables[v]["transform"] == "/":
-                            xds = xds / enum_variables[v]["value"]
-                        xds.rio.write_crs(new_crs, inplace=True)
-                        variable_names = list(xds.variables)
-                        xds[variable_names[3]].rio.to_raster(output_file)
-                print("\tSetted!")
-            else:
-                print("\tFiles already transformed!",save_path_era5_data)
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to extract data from rasters
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # dir_path: path where it should take rasters files.
-    # var: The name of the variable
-    # locations: Dataframe with the stations
-    # date_start: Position into the filename where the date starts
-    # date_end: Position into the filename where the date ends
-    # date_format: Format in which we can find the date in the filename
-    # OUTPUT: list with values extracted by variable, date, and station.
-    def extract_values(self,dir_path,var,locations, date_start,date_end,date_format):
-        files = [f for f in sorted(os.listdir(dir_path)) if f.endswith('.tif')]
-        data = []
-
-        # Loop for each daily file
-        for file in tqdm(files,desc="Extracting " + var):
-            file_path = os.path.join(dir_path, file)
-            """
-            with rasterio.open(file_path) as src:
-                # Loop for each location
-                for index,location in locations.iterrows():
-                    #col, row = ~transform * (location['lon'], location['lat'])
-                    row, col = src.index(location['lon'], location['lat'])
-                    value = src.read(1)[row, col]
-                    date_str = file[date_start:date_end]
-                    date = datetime.datetime.strptime(date_str, date_format)
-                    data.append({'ws':location['ws'],
-                                'day':date.day,
-                                'month':date.month,
-                                'year': date.year,
-                                var: value})
-            """
-            src = rioxarray.open_rasterio(file_path)
-            # Extract the date from the filename using a regex derived from the
-            # expected date format. This is more robust than fixed character
-            # positions, which break when CDS changes the file naming
-            # (e.g. the AgERA5 version suffix v1.0 / v1.1.1 / v2.0.x).
-            date_regex = date_format.replace('%Y', r'\d{4}').replace('%m', r'\d{2}').replace('%d', r'\d{2}')
-            date_regex = date_regex.replace('.', r'\.')
-            match = re.search(date_regex, file)
-            date_str = match.group(0) if match else file[date_start:date_end]
-            date = datetime.datetime.strptime(date_str, date_format)
-
-            try:
-                # Loop for each location
-                for index,location in locations.iterrows():
-                    row, col = abs(src.y - location['lat']).argmin(),abs(src.x - location['lon']).argmin()
-                    value = src.values[0, row, col]
-                    data.append({'ws':location['ws'],
-                                    'day':date.day,
-                                    'month':date.month,
-                                    'year': date.year,
-                                    var: value})
-            finally:
-                # Release the raster file handle so the .tif is not locked on Windows.
-                src.close()
-        #print(data)
-        return data
+    def tearDown(self):
+        # Clean up the temporary test directory and its contents after each test.
+        # ignore_errors prevents a single locked file (e.g. on Windows) from
+        # cascading into errors for every subsequent test.
+        if os.path.exists(self.path_env):
+            shutil.rmtree(self.path_env, ignore_errors=True)
     
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-==-=-==-=-=
-    # Function to filter Data frames with actual date
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-==-=-==-=-==-=-=
-    # data_frame: Dataframe with with data which will be filtered .
-    # OUTPUT: This return Dataframe filtered.
-    def filter_extract_data(self, data_frame):
-        current_year = self.start_date.year
-        current_month = self.start_date.month
-        if "year" not in data_frame.columns:
-            raise ValueError("ERROR year column doesn't exists. Current columns: " + ', '.join(data_frame.columns))
-        if "month" not in data_frame.columns:
-            raise ValueError("ERROR month column doesn't exists. Current columns: " + ', '.join(data_frame.columns))
-        
-        filter_data_frame = data_frame.loc[(data_frame["year"] <= current_year) & (data_frame["month"] <= current_month),:]
-        return filter_data_frame
+    def create_mock_raster(self):
+        chirp_src = os.path.join(self.path_data,self.chirp_data)
+        era5_src = os.path.join(self.path_data,self.era5_data)
+        chirp_dst = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_chirp,self.chirp_data)
+        era5_dst = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_era5,self.variable_era5,self.era5_data)
+
+        with ZipFile(chirp_src + ".zip", 'r') as zObject:
+            zObject.extractall(path=self.path_data)
+        with ZipFile(era5_src + ".zip", 'r') as zObject:
+            zObject.extractall(path=self.path_data)
+
+        if not(os.path.exists(chirp_dst)):
+            shutil.move(chirp_src, chirp_dst)
+        if not(os.path.exists(era5_dst)):
+            shutil.move(era5_src, era5_dst)
     
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to extract Chirp data
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # locations: Dataframe with coordinates for each location that we want to extract.
-    # OUTPUT: This return resampling scenaries join with satellite data.
-    def extract_chirp_data(self,locations):
-        save_path = self.path_country_inputs_forecast_dailydownloaded
-        dir_path = os.path.join(save_path,"chirp")
-        data = self.extract_values(dir_path,'prec',locations,-14,-4,'%Y.%m.%d')
-        df = pd.DataFrame(data)
-        if not df.empty:
-            df = self.filter_extract_data(df)
-        return df
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to extract ERA 5 data
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # locations: Dataframe with coordinates for each location that we want to extract.
-    # variables: List of variables to be extracted. by default
-    # OUTPUT: This return resampling scenaries join with satellite data.
-    def extract_era5_data(self,locations,variables=["t_max","t_min","sol_rad"]):
-        save_path = self.path_country_inputs_forecast_dailydownloaded
-        df = pd.DataFrame()
-        for v in variables:
-            dir_path = os.path.join(save_path,"era5",v)
-            data = self.extract_values(dir_path,v,locations,-23,-15,'%Y%m%d')
-            df_tmp = pd.DataFrame(data)
-            if df.shape[0] == 0:
-                df = df_tmp.copy()
-            else:
-                df = pd.merge(df,df_tmp,how='left',on=['ws','day','month','year'])
-        if not df.empty:
-            df = self.filter_extract_data(df)
-        return df
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to generate climatology from historical data
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # locations: Dataframe with coordinates for each location that we want to extract.
-    # OUTPUT: This return climatology
-    def extract_climatology(self,locations):
-        save_path = self.path_country_inputs_forecast_dailydata
-        df = pd.DataFrame()
-        dfs = []
-        
-        # Loop for each location
-        for index,location in tqdm(locations.iterrows(),total=locations.shape[0],desc="Calculating climatology"):
-            file_path = os.path.join(save_path,location["ws"] + ".csv")
-            df_tmp = pd.read_csv(file_path)
-            df_tmp = df_tmp.groupby(['day', 'month']).agg({
-                            't_max': 'mean',
-                            't_min': 'mean',
-                            'prec': 'median',
-                            'sol_rad': 'mean'
-                    }).reset_index()
-            df_tmp = df_tmp.loc[df_tmp['month'] == self.start_date.month,:]
-            df_tmp['ws'] = location["ws"]
-            dfs.append(df_tmp)
-
-        df = pd.concat(dfs, ignore_index=True)
-        df["year"] = self.start_date.year
-        df = df[['ws','day', 'month', 'year', 'prec','t_max', 't_min', 'sol_rad']]
-
-        return df
+    def move_tests_files(self):
+        os.makedirs(self.path_env_country_inputs,exist_ok=True)
+        if not os.path.exists(self.path_env_country_inputs_forecast_dailydata):
+            shutil.copytree(self.path_data_inputs_forecast,self.path_env_country_inputs_forecast, dirs_exist_ok=True)
+        if not os.path.exists(self.path_env_country_outputs):
+            shutil.copytree(self.path_data_outputs,self.path_env_country_outputs, dirs_exist_ok=True)
     
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function for checking if t_min, t_max and sol_rad have wrong values and replace them with climatology.
+    # TEST PREPARE ENV
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # row: dataframe row with months generate
-    # climatology: climatology
-    def validate_replace(self, row, climatology):
-        # Validate and replace t_max
-        if row['t_max'] < 0 or row['t_max'] > 40:
-            row['t_max'] = climatology.loc[row['day'] - 1, 't_max']
+    
+    def test_prepare_env_valid_path_creation(self):
+        self.move_tests_files()
+        complete_data = CompleteData(self.start_date, self.country, self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        self.assertTrue(os.path.exists(complete_data.path_country))
+        self.assertTrue(os.path.exists(complete_data.path_country_inputs))
+        self.assertTrue(os.path.exists(complete_data.path_country_inputs_forecast))
+        self.assertTrue(os.path.exists(complete_data.path_country_inputs_forecast_dailydata))
+        self.assertTrue(os.path.exists(complete_data.path_country_inputs_forecast_dailydownloaded))
+        self.assertTrue(os.path.exists(complete_data.path_country_outputs))
+        self.assertTrue(os.path.exists(complete_data.path_country_outputs_forecast))
+        self.assertTrue(os.path.exists(complete_data.path_country_outputs_forecast_resampling))
+
+    def test_prepare_env_missing_folders(self):
+        complete_data = CompleteData(self.start_date, self.country, self.path_env, cores=self.cores)
+        # Simulate missing folders by not calling prepare_env()
+
+        with self.assertRaises(ValueError) as context:
+            complete_data.prepare_env()
+
+        self.assertTrue("ERROR Directories don't exist" in str(context.exception))
+
+    def test_prepare_env_daily_downloaded_folder_creation(self):
+        self.move_tests_files()
+        complete_data = CompleteData(self.start_date, self.country, self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        self.assertTrue(os.path.exists(complete_data.path_country_inputs_forecast_dailydownloaded))
+
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # TEST DOWNLOAD FILE
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    def test_download_file_force_false(self):
+        self.move_tests_files()
+        # Test downloading a file with force=False (file already exists)
+        complete_data = CompleteData(self.start_date, self.country, self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Create an empty file to simulate an already downloaded file
+        if not(os.path.exists(self.chirps_file_path)):
+            open(self.chirps_file_path, 'w').close()
+
+        # Perform the download with force=False
+        complete_data.download_file(self.url, self.chirps_file_path_compressed, force=False)
+
+        # Ensure the file was not downloaded again
+        self.assertTrue(os.path.exists(self.chirps_file_path))
+
+    def test_download_file_force_true(self):
+        self.move_tests_files()
+        # Test downloading a file with force=True
+        complete_data = CompleteData(self.start_date, self.country, self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Create an empty file to simulate an already downloaded file
+        if not(os.path.exists(self.chirps_file_path)):
+            open(self.chirps_file_path, 'w').close()
+
+        # Ensure the file exist before downloading
+        self.assertTrue(os.path.exists(self.chirps_file_path))
         
-        # Validate and replace t_min
-        if row['t_min'] < 0 or row['t_min'] > 40:
-            row['t_min'] = climatology.loc[row['day'] - 1, 't_min']
+        # Perform the download with force=True
+        complete_data.download_file(self.url, self.chirps_file_path_compressed, force=True)
         
-        # Validate and replace sol_rad
-        if row['sol_rad'] < 10 or row['sol_rad'] > 40:
-            row['sol_rad'] = climatology.loc[row['day'] - 1, 'sol_rad']
+        # Check if the file was downloaded and extracted
+        self.assertTrue(os.path.exists(self.chirps_file_path))
+
+    def test_download_file_path_not_exists(self):
+        self.move_tests_files()
+        # Test downloading a file to a path that does not exist
+        complete_data = CompleteData(self.start_date, self.country, self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Ensure the subdirectory does not exist before downloading
+        if os.path.exists(self.chirps_file_path):
+            os.remove(self.chirps_file_path)
+        self.assertFalse(os.path.exists(self.chirps_file_path))
         
-        return row
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to write the outputs
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # locations: Dataframe with coordinates for each location that we want to extract.
-    # data: Dataframe with months generate
-    def write_outputs(self,locations,data,climatology,variables=['t_max','t_min','prec','sol_rad']):
-        # Apply the validation and replacement function to each row of df_data
-        data = data.apply(lambda x: self.validate_replace(x, climatology), axis=1)
-        save_path = self.path_country_outputs_forecast_resampling
-        cols_date = ['day','month','year']
-        cols_total = cols_date + variables
-
-        for index,location in tqdm(locations.iterrows(),total=locations.shape[0],desc="Writing scenarios"):
-            files = glob.glob(os.path.join(save_path,location["ws"], '*'))
-            for f in files:
-                # Preparing original files
-                df_tmp = pd.read_csv(f)
-                # Remove records old
-                #current_year = self.start_date.year
-                #current_month = self.start_date.month
-                #df_tmp = df_tmp.loc[((df_tmp["year"] > current_year) | (df_tmp["month"] > current_month)),:]
-                #df_tmp = df_tmp.loc[(df_tmp["year"] != self.start_date.year) &  (df_tmp["month"] != self.start_date.month),:]
-                # filtering data for this location
-                df_data = data.loc[data["ws"] == location["ws"],cols_total]
-
-                # We validate if we have data or we should use the climatology
-                nan_mask = df_data.isna().any(axis=1)
-                nan_rows = df_data[nan_mask]
-
-                for index, row in nan_rows.iterrows():
-                    day = row['day']
-                    month = row['month']
-                    year = row['year']
-
-                    # Search for the corresponding values in df2
-                    matching_row = climatology[(climatology['day'] == day) & (climatology['month'] == month) & (climatology['year'] == year)]
-
-                    if not matching_row.empty:
-                        for v in variables:
-                            # Update the NaN value in df1 with the corresponding value from df2
-                            df_data.at[index, v] = matching_row[v].values[0]                
-
-                #if df_data.shape[0] == 0:
-                #    df_data = climatology.loc[climatology["ws"] == location["ws"],cols_total]
-
-                #df_data = df_data.append(df_tmp,ignore_index=True)
-                df_data = pd.concat([df_data,df_tmp], ignore_index=True)
-                df_data = df_data[cols_total]
-                df_data = df_data.sort_values(by=['year','month','day'])
-                # It removes old records that are duplicated
-                df_data = df_data.drop_duplicates(subset=['year','month','day'], keep='first')
-
-                df_data.to_csv(f,index=False)
-
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to execute chunk of the waether station list
-    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # df_chunk: Dataframe with the partial list of weather stations
-    def run_chunk(self, df_chunk):
-        print("Extracting CHIRP data")
-        df_data_chirp = self.extract_chirp_data(df_chunk)
-        print("Extracted CHIRP data")
-
-        print("Extracting ERA 5 data")
-        df_data_era5 = self.extract_era5_data(df_chunk)
-        print("Extracted ERA 5 data")
+        # Perform the download with force=True to create the subdirectory and download the file
+        complete_data.download_file(self.url, self.chirps_file_path_compressed, force=True)
         
-        print("Merging CHIRPS and ERA 5")
-        df_data = pd.DataFrame()
-        df_data = pd.merge(df_data_chirp,df_data_era5,how='outer',on=['ws','day','month','year'])
-        print("Merged CHIRPS and ERA 5")
-        print("Extracting Climatology data")
-        df_data_climatology = self.extract_climatology(df_chunk)
-        print("Extracted Climatology data")
+        # Check if the file was downloaded and extracted
+        self.assertTrue(os.path.exists(self.chirps_file_path))
+    
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # TEST DOWNLOAD DATA CHIRP
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    def test_download_data_chirp(self):
+        self.move_tests_files()
+        # Test downloading chirp data for a specific period
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
 
-        print("Writing scenarios")
-        self.write_outputs(df_chunk,df_data,df_data_climatology)
-        print("Finished")
+        # Perform the download
+        complete_data.download_data_chirp(test=True)
 
-        return True
+        # Check if the chirp data files were downloaded and stored in the correct location
+        dates = [self.start_date + timedelta(days=x) for x in [0,1]]
+        expected_files = [f"chirp.{date.strftime('%Y.%m.%d')}.tif" for date in dates]
+        for file in expected_files:
+            file_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_chirp, file)
+            self.assertTrue(os.path.exists(file_path))
+    
+    def test_download_data_chirp_existing_files(self):
+        self.move_tests_files()
+        # Test downloading chirp data when some files already exist and force=False
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Create some mock chirp data files
+        for x in [0,1]:
+            date = self.start_date + timedelta(days=x)
+            file_name = f"chirp.{date.strftime('%Y.%m.%d')}.tif"
+            file_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_chirp, file_name)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            with open(file_path, 'w') as f:
+                f.write("Mock data")
+
+        # Perform the download
+        complete_data.download_data_chirp(test=True)
+
+        # Check if the existing files were not downloaded again
+        #for date in [self.start_date + timedelta(days=1), self.start_date + timedelta(days=2)]:
+        for x in [0,1]:
+            date = self.start_date + timedelta(days=x)
+            file_name = f"chirp.{date.strftime('%Y.%m.%d')}.tif"
+            file_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_chirp, file_name)
+            self.assertTrue(os.path.exists(file_path))
+            self.assertEqual(os.path.getsize(file_path), 9)  # Size of the "Mock data"
+
+    def test_download_data_chirp_leapyear(self):
+        self.move_tests_files()
+        # Test downloading chirp data for a leap year
+        complete_data = CompleteData(start_date=self.start_date_leapyear, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Perform the download
+        complete_data.download_data_chirp()
+
+        # Check if the chirp data files were downloaded and stored in the correct location
+        transformed_files = glob.glob(os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_chirp, '*.tif'))
+        self.assertEqual(len(transformed_files), 29)  # 29 days of data downloaded for each variable
+    
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # TEST DOWNLOAD ERA 5
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    def test_download_era5_data_single_variable(self):
+        self.move_tests_files()
+        # Test downloading era5 data for a single variable
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Perform the download for a single variable (t_max)
+        complete_data.download_era5_data(variables=[self.variable_era5],test=True)
+
+        # Check if the era5 data files were downloaded, extracted, and transformed
+        variable_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_era5, self.variable_era5)
+        self.assertTrue(os.path.exists(variable_path))
+        transformed_files = glob.glob(os.path.join(variable_path, '*.tif'))
+        self.assertEqual(len(transformed_files), 2)  # 2 days of data downloaded
+
+    def test_download_era5_data_multiple_variables(self):
+        self.move_tests_files()
+        # Test downloading era5 data for multiple variables (t_max, t_min, sol_rad)
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Perform the download for multiple variables
+        complete_data.download_era5_data(variables=self.variables_era5,test=True)
+
+        # Check if the era5 data files were downloaded, extracted, and transformed for all variables
+        
+        for variable in self.variables_era5:
+            variable_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_era5, variable)
+            self.assertTrue(os.path.exists(variable_path))
+            transformed_files = glob.glob(os.path.join(variable_path, '*.tif'))
+            self.assertEqual(len(transformed_files), 2)  # 2 days of data downloaded for each variable
+
+    def test_download_era5_data_single_variable_leapyear(self):
+        self.move_tests_files()
+        # Test downloading era5 data for a single variable
+        complete_data = CompleteData(start_date=self.start_date_leapyear, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Perform the download for a single variable (sol_rad)
+        complete_data.download_era5_data(variables=["sol_rad"])
+
+        # Check if the era5 data files were downloaded, extracted, and transformed
+        variable_path = os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_era5, "sol_rad")
+        self.assertTrue(os.path.exists(variable_path))
+        transformed_files = glob.glob(os.path.join(variable_path, '*.tif'))
+        self.assertEqual(len(transformed_files), 29)  # 29 days of data downloaded
 
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Function to runs all process
+    # TEST EXTRACT VALUES
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    def run(self):
-        print("Preparing enviroment")
-        self.prepare_env()
-        print("Env prepared")
+    
+    def test_extract_values_single_location_chirp(self):
+        self.move_tests_files()
+        variable = 'prec'
+        # Test extracting values for a single file and a single location
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
 
-        print("CHIRPS data started!")
-        self.download_data_chirp()
-        print("CHIRPS data downloaded!")
+        # Copy the two raster for testing
+        complete_data.download_data_chirp(test=True)
 
-        print("ERA 5 data started!")
-        self.download_era5_data()
-        print("ERA 5 data downloaded!")
+        # Perform the extraction
+        extracted_data = complete_data.extract_values(self.path_env_country_inputs_forecast_dailydownloaded_chirp, variable, self.location, -14,-4,'%Y.%m.%d')
 
-        print("Listing stations")
-        df_ws = self.list_ws()
-        df_ws_full = df_ws.loc[df_ws['message'] == "",:]
-        df_ws_nan = df_ws.loc[df_ws['message'] != "",:]
-        df_ws_full.to_csv(os.path.join(self.path_country_outputs_forecast,"resampling_complete_data_stations_coord.csv"),index=False)
-        df_ws_nan.to_csv(os.path.join(self.path_country_outputs_forecast,"resampling_complete_data_stations_without_coord.csv"),index=False)
-        print("Listed stations")
-        print("Adding data started!")
-        pool = mp.Pool(processes=self.cores)
-        chunks = np.array_split(df_ws_full, self.cores)
-        chunk_processes = [pool.apply_async(self.run_chunk, args=(chunk,)) for chunk in chunks]
-        for process in chunk_processes:
-            process.get()
-        print("Added data!")
+        # Check if the extracted data is correct
+        expected_data = [{'ws': 'Test Location', 'day': 1, 'month': 6, 'year': 2023, variable: 20.493248}]
+
+        self.assertEqual(extracted_data[0]['ws'], expected_data[0]['ws'])
+        self.assertEqual(extracted_data[0]['day'], expected_data[0]['day'])
+        self.assertEqual(extracted_data[0]['month'], expected_data[0]['month'])
+        self.assertEqual(extracted_data[0]['year'], expected_data[0]['year'])
+        self.assertEqual(int(extracted_data[0][variable]),int(expected_data[0][variable]))
+
+    def test_extract_values_multiple_locations_chirp(self):
+        self.move_tests_files()
+        # Test extracting values for multiple files and multiple locations
+        variable = 'prec'
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Copy the two raster for testing
+        complete_data.download_data_chirp(test=True)
+
+        # Perform the extraction
+        extracted_data = complete_data.extract_values(self.path_env_country_inputs_forecast_dailydownloaded_chirp, variable, self.locations, -14,-4,'%Y.%m.%d')
+
+        # Check if the extracted data is correct
+        expected_data = [
+            {'ws': 'Location 1', 'day': 1, 'month': 6, 'year': 2023, variable: 20.493248},
+            {'ws': 'Location 2', 'day': 1, 'month': 6, 'year': 2023, variable: 11.695796}
+        ]
+        for i in [0,1]:
+            self.assertEqual(extracted_data[i]['ws'], expected_data[i]['ws'])
+            self.assertEqual(extracted_data[i]['day'], expected_data[i]['day'])
+            self.assertEqual(extracted_data[i]['month'], expected_data[i]['month'])
+            self.assertEqual(extracted_data[i]['year'], expected_data[i]['year'])
+            self.assertEqual(int(extracted_data[i][variable]),int(expected_data[i][variable]))
+    
+    def test_extract_values_single_file_single_location_era5(self):
+        self.move_tests_files()
+        variable = self.variable_era5
+        # Test extracting values for a single file and a single location
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Copy the two raster for testing
+        complete_data.download_era5_data(variables=[variable],test=True)
+
+        # Perform the extraction
+        extracted_data = complete_data.extract_values(os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_era5,variable), variable, self.location, -23,-15,'%Y%m%d')
+
+        # Check if the extracted data is correct
+        expected_data = []
+        expected_data.append({'ws': 'Test Location', 'day': 1, 'month': 6, 'year': 2023, variable: 21.137909})
+        self.assertEqual(extracted_data[0]['ws'], expected_data[0]['ws'])
+        self.assertEqual(extracted_data[0]['day'], expected_data[0]['day'])
+        self.assertEqual(extracted_data[0]['month'], expected_data[0]['month'])
+        self.assertEqual(extracted_data[0]['year'], expected_data[0]['year'])
+        self.assertEqual(int(extracted_data[0][variable]),int(expected_data[0][variable]))
+
+    def test_extract_values_multiple_files_multiple_locations_era5(self):
+        self.move_tests_files()
+        # Test extracting values for multiple files and multiple locations
+        variable = self.variable_era5
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Copy the two raster for testing
+        complete_data.download_era5_data(variables=[variable],test=True)
+
+        # Perform the extraction
+        extracted_data = complete_data.extract_values(os.path.join(self.path_env_country_inputs_forecast_dailydownloaded_era5,variable), variable, self.locations, -23,-15,'%Y%m%d')
+
+        # Check if the extracted data is correct
+        expected_data = [
+            {'ws': 'Location 1', 'day': 1, 'month': 6, 'year': 2023, variable: 21.137909},
+            {'ws': 'Location 2', 'day': 1, 'month': 6, 'year': 2023, variable: 26.346832}
+        ]
+        for i in [0,1]:
+            self.assertEqual(extracted_data[i]['ws'], expected_data[i]['ws'])
+            self.assertEqual(extracted_data[i]['day'], expected_data[i]['day'])
+            self.assertEqual(extracted_data[i]['month'], expected_data[i]['month'])
+            self.assertEqual(extracted_data[i]['year'], expected_data[i]['year'])
+            self.assertEqual(int(extracted_data[i][variable]),int(expected_data[i][variable]))
+    
+    # =-=-=-=-=-=-=-=-=-
+    # TEST EXTRACT CHIRP
+    # =-=-=-=-=-=-=-=-=-
+    
+    def test_extract_chirp_data_single_location(self):
+        self.move_tests_files()
+        # Test extracting chirp data for a single location
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Perform the extraction
+        complete_data.download_data_chirp(test=True)
+        extracted_data = complete_data.extract_chirp_data(self.location)
+
+        # Check if the extracted data is correct
+        expected_data = pd.DataFrame({
+            'ws': ['Test Location'],
+            'day': [1],
+            'month': [6],
+            'year': [2023],
+            'prec': [20.493248]
+        })
+        #expected_data['prec'] = expected_data['prec'].astype('float32')
+        extracted_data = extracted_data.loc[extracted_data['day'] == 1,:]
         
+        self.assertEqual(extracted_data.shape, expected_data.shape)
+
+    def test_extract_chirp_data_multiple_locations(self):
+        self.move_tests_files()
+        # Test extracting chirp data for a single location
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Perform the extraction
+        complete_data.download_data_chirp(test=True)
+        extracted_data = complete_data.extract_chirp_data(self.locations)
+
+        # Check if the extracted data is correct
+        expected_data = pd.DataFrame({
+            'ws': ['Location 1','Location 2'],
+            'day': [1,1],
+            'month': [6,6],
+            'year': [2023,2023],
+            'prec': [20.493248,11.695796]
+        })
+        #expected_data['prec'] = expected_data['prec'].astype('float32')
+        extracted_data = extracted_data.loc[extracted_data['day'] == 1,:]
         
-        print("Process finished")
+        self.assertEqual(extracted_data.shape, expected_data.shape)
+
+    
+    # =-=-=-=-=-=-=-=-=-
+    # TEST EXTRACT ERA 5
+    # =-=-=-=-=-=-=-=-=-
+
+    def test_extract_era5_data_multiple_locations_single_variable(self):
+        self.move_tests_files()
+        # Test extracting era5 data for multiple locations and a single variable
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Perform the extraction for t_max variable
+        complete_data.download_era5_data(variables=[self.variable_era5],test=True)
+        extracted_data = complete_data.extract_era5_data(self.locations, variables=[self.variable_era5])
+        extracted_data = extracted_data.loc[extracted_data["day"] == 1,:]
+        
+        # Check if the extracted data is correct
+        expected_data = pd.DataFrame({
+            'ws': ['Location 1', 'Location 2'],
+            'day': [1, 1],
+            'month': [6, 6],
+            'year': [2023, 2023],
+            't_max': [21.137909, 26.346832]
+        })
+        expected_data[self.variable_era5] = expected_data[self.variable_era5].astype('float32')
+        extracted_data = extracted_data.loc[extracted_data['day'] == 1,:]
+        
+        pd.testing.assert_frame_equal(extracted_data, expected_data)
+    
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-
+    # TEST LIST WEATHER STATION
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-
+    
+    def test_list_ws_stations(self):
+        self.move_tests_files()
+
+        # Test listing stations with a single valid station
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Perform listing of stations
+        df_ws = complete_data.list_ws()
+
+        # Create a mock coordinates file for a single station
+        ws_names = ['5e91e1c214daf81260ebba59', '5eb346bdebd0050e38685f3e', '5ebad0a74c06b707e80d5c4a']
+        lats = [12.79, 12.13649, 10.057273]
+        lons = [39.65, 39.66048, 34.54025]
+        msgs = ['','','']
+
+        # Check if the station information is correctly listed
+        expected_data = pd.DataFrame({
+            'ws': ws_names,
+            'lat': lats,
+            'lon': lons,
+            'message': msgs
+        })
+        
+        self.assertEqual(df_ws.shape, expected_data.shape)
+
+    def test_list_ws_stations_without_coords(self):
+        self.move_tests_files()
+
+        # Test listing stations with a single valid station
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.path_env, cores=self.cores)
+        complete_data.prepare_env()
+
+        # Remove one coords file for one station
+        if os.path.exists(os.path.join(self.path_env_country_inputs_forecast_dailydata,"5ebad0a74c06b707e80d5c4a_coords.csv")):
+            os.remove(os.path.join(self.path_env_country_inputs_forecast_dailydata,"5ebad0a74c06b707e80d5c4a_coords.csv"))
+
+        # Perform listing of stations
+        df_ws = complete_data.list_ws()
+
+        # Create a mock coordinates file for a single station
+        ws_names = ['5e91e1c214daf81260ebba59', '5eb346bdebd0050e38685f3e', '5ebad0a74c06b707e80d5c4a']
+        lats = [12.79, 12.13649, np.nan]
+        lons = [39.65, 39.66048, np.nan]
+        msgs = ['', '', 'ERROR with coordinates']
+
+        # Check if the station information is correctly listed
+        expected_data = pd.DataFrame({
+            'ws': ws_names,
+            'lat': lats,
+            'lon': lons,
+            'message': msgs
+        })
+
+        df_ws = df_ws.dropna()
+        expected_data = expected_data.dropna()
+
+        self.assertEqual(df_ws.shape, expected_data.shape)
+    
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-
+    # TEST EXTRACT CLIMATOLOGY
+    # =-=-=-=-=-=-=-=-=-=-=-=-=-
+    """
+    def test_extract_climatology_single_location(self):
+        # Test extracting climatology for a single location
+        complete_data = CompleteData(start_date=self.start_date, country=self.country, path=self.root_data, cores=self.cores)
+
+        # Create a mock climatology data file for a single location
+        location_name = 'Location 1'
+        data = pd.DataFrame({
+            'ws': [location_name] * 12,
+            'day': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            'month': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            'year': [2023] * 12,
+            'prec': [10, 20, 15, 30, 25, 35, 40, 45, 50, 55, 60, 65],
+            't_max': [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+            't_min': [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65],
+            'sol_rad': [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+        })
+        self.create_mock_climatology_data(location_name, data)
+
+        # Create a mock locations DataFrame with a single location
+        locations = pd.DataFrame({
+            'ws': [location_name],
+            'lat': [40.0],
+            'lon': [-120.0]
+        })
+
+        # Perform the extraction
+        extracted_data = complete_data.extract_climatology(self.daily_downloaded_path, locations)
+
+        # Check if the extracted data is correct
+        expected_data = data.loc[data['month'] == 7].copy()
+        expected_data["year"] = 2023
+        expected_data = expected_data[['ws', 'day', 'month', 'year', 'prec', 't_max', 't_min', 'sol_rad']]
+        pd.testing.assert_frame_equal(extracted_data, expected_data)
+
+    def test_extract_climatology_multiple_locations(self):
+        # Test extracting climatology for multiple locations
+        start_date = datetime.datetime(2023, 7, 1)
+        country = 'US'
+        path = self.test_path
+        complete_data = CompleteData(start_date=start_date, country=country, path=path, cores=1, force=False)
+
+        # Create mock climatology data files for multiple locations
+        location1_data = pd.DataFrame({
+            'ws': ['Location 1'] * 12,
+            'day': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            'month': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            'year': [2023] * 12,
+            'prec': [10, 20, 15, 30, 25, 35, 40, 45, 50, 55, 60, 65],
+            't_max': [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+            't_min': [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65],
+            'sol_rad': [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+        })
+        self.create_mock_climatology_data('Location 1', location1_data)
+
+        location2_data = pd.DataFrame({
+            'ws': ['Location 2'] * 12,
+            'day': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            'month': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            'year': [2023] * 12,
+            'prec': [20, 30, 25, 40, 35, 45, 50, 55, 60, 65, 70, 75],
+            't_max': [35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
+            't_min': [15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70],
+            'sol_rad': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300]
+        })
+        self.create_mock_climatology_data('Location 2', location2_data)
+
+        # Create a mock locations DataFrame with multiple locations
+        locations = pd.DataFrame({
+            'ws': ['Location 1', 'Location 2'],
+            'lat': [40.0, 41.0],
+            'lon': [-120.0, -121.0]
+        })
+    
+    """
+if __name__ == '__main__':
+    unittest.main()
