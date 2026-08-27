@@ -6,6 +6,7 @@ import sys
 import os
 import glob
 import datetime
+import re
 import urllib.request
 from datetime import timedelta
 from zipfile import ZipFile
@@ -53,7 +54,7 @@ class CompleteData():
     def prepare_env(self):
         # Creating paths
         self.path_country = os.path.join(self.path,self.country)
-        self.cdsapi_version = "1_1"
+        self.cdsapi_version = "2_0"
         self.path_country_inputs = os.path.join(self.path_country,"inputs")
         self.path_country_inputs_forecast = os.path.join(self.path_country_inputs,"prediccionClimatica")
         self.path_country_inputs_forecast_dailydata = os.path.join(self.path_country_inputs_forecast,"dailyData")
@@ -237,14 +238,16 @@ class CompleteData():
                     input_file = file
                     output_file = os.path.join(save_path_era5_data,file.split(os.path.sep)[-1].replace(".nc",".tif"))
 
-                    xds = xr.open_dataset(input_file)
-                    if enum_variables[v]["transform"] == "-":
-                        xds = xds - enum_variables[v]["value"]
-                    elif enum_variables[v]["transform"] == "/":
-                        xds = xds / enum_variables[v]["value"]
-                    xds.rio.write_crs(new_crs, inplace=True)
-                    variable_names = list(xds.variables)
-                    xds[variable_names[3]].rio.to_raster(output_file)
+                    # Context manager ensures the NetCDF file handle is closed
+                    # (otherwise the .nc files stay locked on Windows).
+                    with xr.open_dataset(input_file) as xds:
+                        if enum_variables[v]["transform"] == "-":
+                            xds = xds - enum_variables[v]["value"]
+                        elif enum_variables[v]["transform"] == "/":
+                            xds = xds / enum_variables[v]["value"]
+                        xds.rio.write_crs(new_crs, inplace=True)
+                        variable_names = list(xds.variables)
+                        xds[variable_names[3]].rio.to_raster(output_file)
                 print("\tSetted!")
             else:
                 print("\tFiles already transformed!",save_path_era5_data)
@@ -282,24 +285,29 @@ class CompleteData():
                                 var: value})
             """
             src = rioxarray.open_rasterio(file_path)
-            # Loop for each location
-            for index,location in locations.iterrows():
-                row, col = abs(src.y - location['lat']).argmin(),abs(src.x - location['lon']).argmin()
-                value = src.values[0, row, col]
-                #Some days of era5 have a long name. So, this conditional is for fix the string lenght.
-                if "v1.1.1.tif" in file:
-                    first_date = -25
-                    second_date = -17
-                else:
-                    first_date = date_start
-                    second_date = date_end
-                date_str = file[first_date:second_date]
-                date = datetime.datetime.strptime(date_str, date_format)
-                data.append({'ws':location['ws'],
-                                'day':date.day,
-                                'month':date.month,
-                                'year': date.year,
-                                var: value})
+            # Extract the date from the filename using a regex derived from the
+            # expected date format. This is more robust than fixed character
+            # positions, which break when CDS changes the file naming
+            # (e.g. the AgERA5 version suffix v1.0 / v1.1.1 / v2.0.x).
+            date_regex = date_format.replace('%Y', r'\d{4}').replace('%m', r'\d{2}').replace('%d', r'\d{2}')
+            date_regex = date_regex.replace('.', r'\.')
+            match = re.search(date_regex, file)
+            date_str = match.group(0) if match else file[date_start:date_end]
+            date = datetime.datetime.strptime(date_str, date_format)
+
+            try:
+                # Loop for each location
+                for index,location in locations.iterrows():
+                    row, col = abs(src.y - location['lat']).argmin(),abs(src.x - location['lon']).argmin()
+                    value = src.values[0, row, col]
+                    data.append({'ws':location['ws'],
+                                    'day':date.day,
+                                    'month':date.month,
+                                    'year': date.year,
+                                    var: value})
+            finally:
+                # Release the raster file handle so the .tif is not locked on Windows.
+                src.close()
         #print(data)
         return data
     

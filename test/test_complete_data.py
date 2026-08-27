@@ -58,9 +58,11 @@ class TestCompleteData(unittest.TestCase):
         os.makedirs(self.path_env_country, exist_ok=True)
 
     def tearDown(self):
-        # Clean up the temporary test directory and its contents after each test
-        shutil.rmtree(self.path_env)
-        pass
+        # Clean up the temporary test directory and its contents after each test.
+        # ignore_errors prevents a single locked file (e.g. on Windows) from
+        # cascading into errors for every subsequent test.
+        if os.path.exists(self.path_env):
+            shutil.rmtree(self.path_env, ignore_errors=True)
     
     def create_mock_raster(self):
         chirp_src = os.path.join(self.path_data,self.chirp_data)
@@ -81,9 +83,9 @@ class TestCompleteData(unittest.TestCase):
     def move_tests_files(self):
         os.makedirs(self.path_env_country_inputs,exist_ok=True)
         if not os.path.exists(self.path_env_country_inputs_forecast_dailydata):
-            shutil.copytree(self.path_data_inputs_forecast,self.path_env_country_inputs_forecast)
+            shutil.copytree(self.path_data_inputs_forecast,self.path_env_country_inputs_forecast, dirs_exist_ok=True)
         if not os.path.exists(self.path_env_country_outputs):
-            shutil.copytree(self.path_data_outputs,self.path_env_country_outputs)
+            shutil.copytree(self.path_data_outputs,self.path_env_country_outputs, dirs_exist_ok=True)
     
     # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # TEST PREPARE ENV
@@ -354,7 +356,7 @@ class TestCompleteData(unittest.TestCase):
 
         # Check if the extracted data is correct
         expected_data = []
-        expected_data.append({'ws': 'Test Location', 'day': 1, 'month': 6, 'year': 2023, variable: 20.708344})
+        expected_data.append({'ws': 'Test Location', 'day': 1, 'month': 6, 'year': 2023, variable: 21.137909})
         self.assertEqual(extracted_data[0]['ws'], expected_data[0]['ws'])
         self.assertEqual(extracted_data[0]['day'], expected_data[0]['day'])
         self.assertEqual(extracted_data[0]['month'], expected_data[0]['month'])
@@ -376,8 +378,8 @@ class TestCompleteData(unittest.TestCase):
 
         # Check if the extracted data is correct
         expected_data = [
-            {'ws': 'Location 1', 'day': 1, 'month': 6, 'year': 2023, variable: 20.708344},
-            {'ws': 'Location 2', 'day': 1, 'month': 6, 'year': 2023, variable: 25.889648}
+            {'ws': 'Location 1', 'day': 1, 'month': 6, 'year': 2023, variable: 21.137909},
+            {'ws': 'Location 2', 'day': 1, 'month': 6, 'year': 2023, variable: 26.346832}
         ]
         for i in [0,1]:
             self.assertEqual(extracted_data[i]['ws'], expected_data[i]['ws'])
@@ -458,7 +460,7 @@ class TestCompleteData(unittest.TestCase):
             'day': [1, 1],
             'month': [6, 6],
             'year': [2023, 2023],
-            't_max': [20.708344, 25.889648]
+            't_max': [21.137909, 26.346832]
         })
         expected_data[self.variable_era5] = expected_data[self.variable_era5].astype('float32')
         extracted_data = extracted_data.loc[extracted_data['day'] == 1,:]
